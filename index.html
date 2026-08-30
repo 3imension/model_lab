@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Model Lab - 프라공방 예약 시스템</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="main-header">
+            <a href="index.html" class="logo-area">
+                <div class="logo-icon">ML</div>
+                <div class="logo-text">
+                    <h1>Model Lab</h1>
+                    <span>노원구 공릉동 프라모델 / 3D modeling, printing studio</span>
+                </div>
+            </a>
+            <nav class="nav-buttons" id="nav-buttons"></nav>
+        </header>
+
+        <main class="card-section">
+            <div class="calendar-nav-header">
+                <button id="prev-btn" class="nav-btn btn-secondary">&lt; 이전 달</button>
+                <h2 id="month-title">2026년 9월</h2>
+                <button id="next-btn" class="nav-btn btn-secondary">다음 달 &gt;</button>
+            </div>
+            
+            <div id="calendar-grid" class="monthly-calendar-grid"></div>
+        </main>
+    </div>
+    <script src="app.js"></script>
+    <script>
+        let year = 2026, month = 8;
+        function renderMainCalendar() {
+            document.getElementById('month-title').textContent = `${year}년 ${month + 1}월`;
+            const grid = document.getElementById('calendar-grid');
+            grid.innerHTML = '';
+
+            const headers = ['일', '월', '화', '수', '목', '금', '토'];
+            headers.forEach((h, idx) => {
+                const div = document.createElement('div');
+                div.className = `calendar-day-header ${idx === 0 ? 'sun' : idx === 6 ? 'sat' : ''}`;
+                div.textContent = h;
+                grid.appendChild(div);
+            });
+
+            const first = new Date(year, month, 1).getDay();
+            const last = new Date(year, month + 1, 0).getDate();
+            const bookings = getBookings();
+
+            for (let i = 0; i < first; i++) {
+                grid.appendChild(Object.assign(document.createElement('div'), { className: 'calendar-day-cell empty' }));
+            }
+
+            for (let d = 1; d <= last; d++) {
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                const count = bookings.filter(b => b.date === dateStr).length;
+
+                const cell = document.createElement('div');
+                cell.className = 'calendar-day-cell';
+                cell.innerHTML = `
+                    <span class="day-number">${d}</span>
+                    <span class="day-status-badge ${count >= 4 ? 'full' : count > 0 ? 'reserved' : 'available'}">
+                        ${count >= 4 ? '매진' : count > 0 ? `${count}/4 완료` : '여유'}
+                    </span>
+                `;
+                grid.appendChild(cell);
+            }
+        }
+
+        document.getElementById('prev-btn').onclick = () => { month--; if (month < 0) { month = 11; year--; } renderMainCalendar(); };
+        document.getElementById('next-btn').onclick = () => { month++; if (month > 11) { month = 0; year++; } renderMainCalendar(); };
+        document.addEventListener('DOMContentLoaded', renderMainCalendar);
+    </script>
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Model Lab - 좌석 예약</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="main-header">
+            <a href="index.html" class="logo-area">
+                <div class="logo-icon">ML</div>
+                <div class="logo-text"><h1>Model Lab</h1><span>좌석 예약</span></div>
+            </a>
+            <nav class="nav-buttons" id="nav-buttons"></nav>
+        </header>
+
+        <div class="reservation-layout" style="display:grid; grid-template-columns: 1.2fr 1fr; gap: 20px;">
+            <main class="card-section">
+                <h3>날짜 선택 (2026년 9월)</h3>
+                <div id="res-calendar" class="monthly-calendar-grid" style="margin-top:10px;"></div>
+            </main>
+
+            <aside class="card-section">
+                <h3 id="res-title">날짜를 선택해 주세요</h3>
+                <div class="form-group" style="margin-top:10px;">
+                    <label>시간대 선택</label>
+                    <select id="time-select" disabled></select>
+                </div>
+                <div class="form-group">
+                    <label>좌석 선택 (4자리)</label>
+                    <div class="seat-map">
+                        <button type="button" class="seat-btn" data-seat="M01" disabled>M01</button>
+                        <button type="button" class="seat-btn" data-seat="M02" disabled>M02</button>
+                        <button type="button" class="seat-btn" data-seat="M03" disabled>M03</button>
+                        <button type="button" class="seat-btn" data-seat="M04" disabled>M04</button>
+                    </div>
+                </div>
+                <button type="button" id="confirm-btn" class="nav-btn btn-primary" style="width:100%; padding:12px;" disabled>예약 확정하기</button>
+            </aside>
+        </div>
+    </div>
+    <script src="app.js"></script>
+    <script>
+        const user = getCurrentUser();
+        if (!user || !user.approved) { alert('승인된 회원만 이용 가능합니다.'); window.location.href = 'index.html'; }
+
+        let selDate = '', selTime = '', selSeat = '';
+        const seatBtns = document.querySelectorAll('.seat-btn');
+
+        function renderResCal() {
+            const cal = document.getElementById('res-calendar');
+            cal.innerHTML = '';
+            ['일','월','화','수','목','금','토'].forEach(h => cal.appendChild(Object.assign(document.createElement('div'), {className:'calendar-day-header', textContent:h})));
+
+            const first = new Date(2026, 8, 1).getDay();
+            const last = new Date(2026, 9, 0).getDate();
+
+            for(let i=0; i<first; i++) cal.appendChild(Object.assign(document.createElement('div'), {className:'calendar-day-cell empty'}));
+
+            for(let d=1; d<=last; d++) {
+                const dateStr = `2026-09-${String(d).padStart(2,'0')}`;
+                const cell = document.createElement('div');
+                cell.className = 'calendar-day-cell';
+                cell.innerHTML = `<span class="day-number">${d}</span>`;
+                cell.onclick = () => {
+                    document.querySelectorAll('.calendar-day-cell').forEach(c => c.classList.remove('selected'));
+                    cell.classList.add('selected');
+                    selDate = dateStr;
+                    document.getElementById('res-title').textContent = `${selDate} 예약`;
+                    
+                    const timeSel = document.getElementById('time-select');
+                    timeSel.disabled = false;
+                    const isWeekend = (new Date(2026, 8, d).getDay() % 6 === 0);
+                    const slots = isWeekend ? ["10:00 - 14:00 (주말 1부)", "14:00 - 18:00 (주말 2부)", "18:00 - 22:00 (주말 3부)"] : ["19:00 - 23:00 (평일 야간)"];
+                    timeSel.innerHTML = '<option value="">선택</option>' + slots.map(s => `<option value="${s}">${s}</option>`).join('');
+                };
+                cal.appendChild(cell);
+            }
+        }
+
+        document.getElementById('time-select').onchange = (e) => {
+            selTime = e.target.value;
+            const bookings = getBookings().filter(b => b.date === selDate && b.time === selTime);
+            const taken = bookings.map(b => b.seat);
+
+            seatBtns.forEach(btn => {
+                const s = btn.dataset.seat;
+                btn.classList.remove('selected', 'taken');
+                if(taken.includes(s)) { btn.classList.add('taken'); btn.disabled = true; }
+                else { btn.disabled = false; }
+            });
+        };
+
+        seatBtns.forEach(btn => {
+            btn.onclick = () => {
+                seatBtns.forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                selSeat = btn.dataset.seat;
+                document.getElementById('confirm-btn').disabled = false;
+            };
+        });
+
+        document.getElementById('confirm-btn').onclick = () => {
+            let bookings = getBookings();
+            bookings.push({ userId: user.id, userName: user.name, date: selDate, time: selTime, seat: selSeat, hours: 4 });
+            localStorage.setItem('ml_bookings', JSON.stringify(bookings));
+
+            let users = getUsers();
+            let u = users.find(x => x.id === user.id);
+            if(u) u.usedHours = (u.usedHours || 0) + 4;
+            localStorage.setItem('ml_users', JSON.stringify(users));
+            localStorage.setItem('ml_session', JSON.stringify(u));
+
+            alert('예약이 확정되었습니다.');
+            window.location.href = 'mypage.html';
+        };
+
+        document.addEventListener('DOMContentLoaded', renderResCal);
+    </script>
+</body>
+</html>

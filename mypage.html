@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Model Lab - 내 정보 관리</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="main-header">
+            <a href="index.html" class="logo-area">
+                <div class="logo-icon">ML</div>
+                <div class="logo-text"><h1>Model Lab</h1><span>내 정보 관리</span></div>
+            </a>
+            <nav class="nav-buttons" id="nav-buttons"></nav>
+        </header>
+
+        <main class="card-section">
+            <h2 style="margin-bottom: 15px;">회원 정보 및 클래스 현황</h2>
+            <table class="admin-table" style="margin-bottom: 20px;">
+                <tr><th>이름</th><td id="my-name"></td><th>아이디</th><td id="my-id"></td></tr>
+                <tr><th>연락처</th><td id="my-phone"></td><th>이메일</th><td id="my-email"></td></tr>
+                <tr><th>이용 클래스</th><td id="my-class"></td><th>승인 상태</th><td id="my-status"></td></tr>
+                <tr><th>총 제공 시간</th><td id="my-total"></td><th>사용 / 잔여 시간</th><td id="my-remain"></td></tr>
+            </table>
+
+            <h3>내 좌석 예약 내역</h3>
+            <table class="admin-table">
+                <thead><tr><th>예약 날짜</th><th>시간대</th><th>좌석</th><th>취소</th></tr></thead>
+                <tbody id="my-booking-list"></tbody>
+            </table>
+
+            <div style="margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                <button onclick="deleteAccount()" class="nav-btn btn-danger">회원 탈퇴하기</button>
+            </div>
+        </main>
+    </div>
+    <script src="app.js"></script>
+    <script>
+        const user = getCurrentUser();
+        if (!user) { alert('로그인이 필요합니다.'); window.location.href = 'login.html'; }
+
+        document.getElementById('my-name').textContent = user.name;
+        document.getElementById('my-id').textContent = user.id;
+        document.getElementById('my-phone').textContent = user.phone;
+        document.getElementById('my-email').textContent = user.email;
+        document.getElementById('my-class').textContent = user.classType || '미지정';
+        document.getElementById('my-status').textContent = user.approved ? '승인 완료' : '승인 대기';
+        document.getElementById('my-total').textContent = `${user.totalHours || 0} 시간`;
+        document.getElementById('my-remain').textContent = `${user.usedHours || 0} 시간 사용 / ${(user.totalHours || 0) - (user.usedHours || 0)} 시간 남음`;
+
+        function renderMyBookings() {
+            const list = document.getElementById('my-booking-list');
+            const bookings = getBookings().filter(b => b.userId === user.id);
+            list.innerHTML = bookings.length === 0 ? '<tr><td colspan="4">예약 내역이 없습니다.</td></tr>' : '';
+
+            bookings.forEach(b => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${b.date}</td><td>${b.time}</td><td>${b.seat}</td>
+                    <td><button onclick="cancelBooking('${b.date}', '${b.time}', '${b.seat}')" class="nav-btn btn-danger">예약 취소</button></td>
+                `;
+                list.appendChild(tr);
+            });
+        }
+
+        function cancelBooking(date, time, seat) {
+            if (!confirm('예약을 취소하시겠습니까?')) return;
+            let bookings = getBookings().filter(b => !(b.userId === user.id && b.date === date && b.time === time && b.seat === seat));
+            localStorage.setItem('ml_bookings', JSON.stringify(bookings));
+
+            let users = getUsers();
+            let u = users.find(x => x.id === user.id);
+            if (u && u.usedHours >= 4) u.usedHours -= 4;
+            localStorage.setItem('ml_users', JSON.stringify(users));
+            localStorage.setItem('ml_session', JSON.stringify(u));
+
+            location.reload();
+        }
+
+        function deleteAccount() {
+            if (!confirm('정말로 탈퇴하시겠습니까? 데이터가 모두 삭제됩니다.')) return;
+            let users = getUsers().filter(u => u.id !== user.id);
+            localStorage.setItem('ml_users', JSON.stringify(users));
+            localStorage.removeItem('ml_session');
+            alert('탈퇴가 완료되었습니다.');
+            window.location.href = 'index.html';
+        }
+
+        document.addEventListener('DOMContentLoaded', renderMyBookings);
+    </script>
+</body>
+</html>

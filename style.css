@@ -1,0 +1,231 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+    background-color: #f8fafc;
+    color: #1e293b;
+    padding: 20px 15px;
+    display: flex;
+    justify-content: center;
+}
+
+.app-container {
+    width: 100%;
+    max-width: 1000px;
+}
+
+.app-container.narrow {
+    max-width: 500px;
+}
+
+/* 상단 로고 & 헤더 Nav */
+.main-header {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.logo-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+    color: inherit;
+}
+
+.logo-icon {
+    width: 42px;
+    height: 42px;
+    background: #2563eb;
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+}
+
+.logo-text h1 { font-size: 1.3rem; color: #0f172a; }
+.logo-text span { font-size: 0.8rem; color: #64748b; }
+
+.nav-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.nav-btn {
+    text-decoration: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+
+.btn-primary { background: #2563eb; color: #fff; }
+.btn-secondary { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
+.btn-danger { background: #ef4444; color: #fff; }
+.btn-success { background: #16a34a; color: #fff; }
+
+/* 카드 섹션 공통 */
+.card-section {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    margin-bottom: 20px;
+}
+
+/* 안내 및 알림 박스 */
+.alert-notice {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1e40af;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    line-height: 1.4;
+    margin-bottom: 16px;
+}
+
+/* 폼 요소 */
+.form-group {
+    margin-bottom: 14px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.form-row {
+    display: flex;
+    gap: 8px;
+}
+
+input[type="text"], input[type="password"], input[type="tel"], input[type="email"], select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+
+/* 7열 달력 */
+.calendar-nav-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.monthly-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+}
+
+.calendar-day-header {
+    font-weight: bold;
+    text-align: center;
+    padding: 8px 0;
+    background: #f8fafc;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    border: 1px solid #e2e8f0;
+}
+
+.calendar-day-header.sun { color: #dc2626; }
+.calendar-day-header.sat { color: #2563eb; }
+
+.calendar-day-cell {
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    min-height: 65px;
+    padding: 4px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background: #fff;
+}
+
+.calendar-day-cell:hover:not(.empty) { background: #eff6ff; border-color: #2563eb; }
+.calendar-day-cell.selected { background: #dbeafe; border-color: #2563eb; }
+.calendar-day-cell.empty { border: none; background: transparent; cursor: default; }
+
+.day-number { font-weight: 700; font-size: 0.85rem; }
+.day-status-badge {
+    font-size: 0.72rem;
+    padding: 2px;
+    border-radius: 4px;
+    text-align: center;
+    font-weight: 600;
+}
+.day-status-badge.available { background: #dbeafe; color: #1d4ed8; }
+.day-status-badge.reserved { background: #fef3c7; color: #d97706; }
+.day-status-badge.full { background: #fee2e2; color: #dc2626; }
+
+/* 데이터 테이블 */
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 0.85rem;
+}
+
+.admin-table th, .admin-table td {
+    border: 1px solid #e2e8f0;
+    padding: 10px;
+    text-align: center;
+}
+
+.admin-table th { background: #f8fafc; font-weight: 700; }
+
+.badge-status {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+.badge-status.approved { background: #dcfce7; color: #15803d; }
+.badge-status.pending { background: #fef9c3; color: #a16207; }
+
+/* 예약 관련 */
+.seat-map {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    background: #f8fafc;
+    padding: 10px;
+    border-radius: 8px;
+    margin-top: 8px;
+}
+
+.seat-btn {
+    padding: 10px 0;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+}
+.seat-btn.taken { background: #e2e8f0; color: #94a3b8; text-decoration: line-through; cursor: not-allowed; }
+.seat-btn.selected { background: #16a34a; color: #fff; border-color: #16a34a; }
