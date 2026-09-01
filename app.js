@@ -1,4 +1,6 @@
-// 3imension님의 Firebase 발급 키
+// ========================================================
+// MOLAB - Firebase Cloud Firestore 설정 및 초기화
+// ========================================================
 const firebaseConfig = {
     apiKey: "AIzaSyDkP5efJB5qvfs1zT8YGzHNLOdYxNRna0E",
     authDomain: "model-lab-52a15.firebaseapp.com",
@@ -9,7 +11,6 @@ const firebaseConfig = {
     measurementId: "G-XVF5XF31BD"
 };
 
-// Firebase 초기화 예외 처리
 let db = null;
 try {
     if (typeof firebase !== 'undefined') {
@@ -22,6 +23,9 @@ try {
     console.error("Firebase 초기화 에러:", e);
 }
 
+// ========================================================
+// 세션 및 네비게이션 관리
+// ========================================================
 function getCurrentUser() {
     try {
         return JSON.parse(localStorage.getItem('ml_session'));

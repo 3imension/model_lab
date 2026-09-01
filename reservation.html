@@ -12,7 +12,10 @@
         <header class="main-header">
             <a href="index.html" class="logo-area">
                 <div class="logo-icon">ML</div>
-                <div class="logo-text"><h1>Model Lab</h1><span>좌석 예약</span></div>
+                <div class="logo-text">
+                    <h1>MOLAB</h1>
+                    <span>Plastic model & 3D Printing Studio NOWON Goneung</span>
+                </div>
             </a>
             <nav class="nav-buttons" id="nav-buttons"></nav>
         </header>
@@ -51,7 +54,7 @@
         const session = getCurrentUser();
         if (!session || !session.approved) { alert('승인된 회원만 이용 가능합니다.'); window.location.href = 'index.html'; }
 
-        let year = 2026, month = 8; // 8 = 9월
+        let year = 2026, month = 8;
         let selDate = '', selTime = '', selSeat = '';
         const seatBtns = document.querySelectorAll('.seat-btn');
 

@@ -12,7 +12,10 @@
         <header class="main-header">
             <a href="index.html" class="logo-area">
                 <div class="logo-icon">ML</div>
-                <div class="logo-text"><h1>Model Lab</h1><span>내 정보 관리</span></div>
+                <div class="logo-text">
+                    <h1>MOLAB</h1>
+                    <span>Plastic model & 3D Printing Studio NOWON Goneung</span>
+                </div>
             </a>
             <nav class="nav-buttons" id="nav-buttons"></nav>
         </header>
@@ -92,18 +95,37 @@
 
                 myBookings.sort((a, b) => a.date.localeCompare(b.date));
 
-                // 오늘 날짜 구하기 (YYYY-MM-DD)
-                const todayStr = new Date().toISOString().split('T')[0];
+                const now = new Date();
+                const todayStr = now.toISOString().split('T')[0];
+                const currentHour = now.getHours();
 
                 myBookings.forEach(b => {
-                    const isPast = b.date < todayStr; // 지난 날짜 여부 확인
                     const tr = document.createElement('tr');
-
                     let statusBtnHTML = '';
-                    if (isPast) {
+
+                    // 실시간 사용중 / 이용완료 / 예약중 판별 로직
+                    if (b.date < todayStr) {
                         statusBtnHTML = `<span style="background:#cbd5e1; color:#475569; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">사용완료</span>`;
-                    } else {
+                    } else if (b.date > todayStr) {
                         statusBtnHTML = `<button onclick="cancelBooking('${b.docId}', ${b.hours || 4})" class="nav-btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;">예약 취소</button>`;
+                    } else {
+                        // 오늘 날짜인 경우 시간대 비교
+                        const timeStr = b.time || '';
+                        let startHour = 0, endHour = 24;
+
+                        if (timeStr.includes("10:00 - 14:00")) { startHour = 10; endHour = 14; }
+                        else if (timeStr.includes("14:00 - 18:00")) { startHour = 14; endHour = 18; }
+                        else if (timeStr.includes("18:00 - 22:00")) { startHour = 18; endHour = 22; }
+                        else if (timeStr.includes("19:00 - 23:00")) { startHour = 19; endHour = 23; }
+
+                        if (currentHour >= startHour && currentHour < endHour) {
+                            // 현재 시각이 해당 시간대에 포함되면 [사용중] 표기
+                            statusBtnHTML = `<span style="background:#dcfce7; color:#15803d; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">사용중</span>`;
+                        } else if (currentHour >= endHour) {
+                            statusBtnHTML = `<span style="background:#cbd5e1; color:#475569; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">사용완료</span>`;
+                        } else {
+                            statusBtnHTML = `<button onclick="cancelBooking('${b.docId}', ${b.hours || 4})" class="nav-btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;">예약 취소</button>`;
+                        }
                     }
 
                     tr.innerHTML = `
