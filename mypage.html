@@ -20,10 +20,10 @@
         <main class="card-section">
             <h2 style="margin-bottom: 15px;">회원 정보 및 클래스 현황</h2>
             <table class="admin-table" style="margin-bottom: 20px;">
-                <tr><th>이름</th><td id="my-name"></td><th>아이디</th><td id="my-id"></td></tr>
-                <tr><th>연락처</th><td id="my-phone"></td><th>이메일</th><td id="my-email"></td></tr>
-                <tr><th>이용 클래스</th><td id="my-class"></td><th>승인 상태</th><td id="my-status"></td></tr>
-                <tr><th>총 제공 시간</th><td id="my-total"></td><th>사용 / 잔여 시간</th><td id="my-remain"></td></tr>
+                <tr><th>이름</th><td id="my-name">-</td><th>아이디</th><td id="my-id">-</td></tr>
+                <tr><th>연락처</th><td id="my-phone">-</td><th>이메일</th><td id="my-email">-</td></tr>
+                <tr><th>이용 클래스</th><td id="my-class">-</td><th>승인 상태</th><td id="my-status">-</td></tr>
+                <tr><th>총 제공 시간</th><td id="my-total">-</td><th>사용 / 잔여 시간</th><td id="my-remain">-</td></tr>
             </table>
 
             <h3>내 좌석 예약 내역</h3>
@@ -46,12 +46,10 @@
 
         async function loadMyInfo() {
             try {
-                if (!db) {
-                    throw new Error("DB 연결 실패");
-                }
+                if (!db) return;
 
-                // 1. 최신 회원 정보 불러오기
-                const userDoc = await db.collection('users').doc(session.id).get();
+                // 1. 유저 정보 조회
+                const userDoc = await db.collection('users').doc(String(session.id).trim()).get();
                 const user = userDoc.exists ? userDoc.data() : session;
 
                 document.getElementById('my-name').textContent = user.name || '-';
@@ -61,26 +59,35 @@
                 document.getElementById('my-class').textContent = user.classType || '미지정';
                 document.getElementById('my-status').textContent = user.approved ? '승인 완료' : '승인 대기';
                 
-                const total = user.totalHours || 0;
-                const used = user.usedHours || 0;
+                const total = Number(user.totalHours || 0);
+                const used = Number(user.usedHours || 0);
                 const remain = total - used;
 
                 document.getElementById('my-total').textContent = `${total} 시간`;
                 document.getElementById('my-remain').textContent = `${used} 시간 사용 / ${remain} 시간 남음`;
 
-                // 2. 내 예약 내역 불러오기 (안전한 전체 조회 후 필터링)
+                // 2. 전체 예약 데이터 조회 후 대소문자/공백 무시 필터링
                 const snapshot = await db.collection('bookings').get();
                 const list = document.getElementById('my-booking-list');
                 list.innerHTML = '';
 
-                const myBookings = snapshot.docs
-                    .map(doc => ({ docId: doc.id, ...doc.data() }))
-                    .filter(b => b.userId === session.id);
+                const myUserId = String(session.id).trim().toLowerCase();
+                const myBookings = [];
+
+                snapshot.docs.forEach(doc => {
+                    const data = doc.data();
+                    if (data.userId && String(data.userId).trim().toLowerCase() === myUserId) {
+                        myBookings.push({ docId: doc.id, ...data });
+                    }
+                });
 
                 if (myBookings.length === 0) {
                     list.innerHTML = '<tr><td colspan="4">예약 내역이 없습니다.</td></tr>';
                     return;
                 }
+
+                // 날짜 오름차순 정렬 후 표 출력
+                myBookings.sort((a, b) => a.date.localeCompare(b.date));
 
                 myBookings.forEach(b => {
                     const tr = document.createElement('tr');
@@ -97,40 +104,36 @@
 
             } catch (err) {
                 console.error("MyPage Load Error:", err);
-                document.getElementById('my-booking-list').innerHTML = `<tr><td colspan="4" style="color:red;">내역 불러오기 실패: ${err.message}</td></tr>`;
+                document.getElementById('my-booking-list').innerHTML = `<tr><td colspan="4" style="color:red;">내역 로딩 오류: ${err.message}</td></tr>`;
             }
         }
 
-        // 예약 취소 및 사용시간 환불 기능
         async function cancelBooking(docId, hoursToRefund) {
             if (!confirm('해당 예약을 취소하시겠습니까?\n취소 시 사용된 시간이 다시 환불됩니다.')) return;
 
             try {
-                // 1. 예약 문서 삭제
                 await db.collection('bookings').doc(docId).delete();
 
-                // 2. 사용 유저의 usedHours 4시간 차감 (시간 복구)
-                const userRef = db.collection('users').doc(session.id);
+                const userRef = db.collection('users').doc(String(session.id).trim());
                 const userDoc = await userRef.get();
                 if (userDoc.exists) {
-                    const currentUsed = userDoc.data().usedHours || 0;
+                    const currentUsed = Number(userDoc.data().usedHours || 0);
                     await userRef.update({ 
-                        usedHours: Math.max(0, currentUsed - hoursToRefund) 
+                        usedHours: Math.max(0, currentUsed - Number(hoursToRefund)) 
                     });
                 }
 
                 alert('예약이 성공적으로 취소되고 시간이 복구되었습니다.');
-                loadMyInfo(); // 화면 즉시 갱신
+                loadMyInfo();
             } catch (err) {
-                console.error("Cancel Error:", err);
-                alert(`예약 취소 중 오류 발생:\n${err.message}`);
+                alert(`예약 취소 오류: ${err.message}`);
             }
         }
 
         async function deleteAccount() {
             if (!confirm('정말로 탈퇴하시겠습니까? 데이터가 모두 삭제됩니다.')) return;
             try {
-                await db.collection('users').doc(session.id).delete();
+                await db.collection('users').doc(String(session.id).trim()).delete();
                 localStorage.removeItem('ml_session');
                 alert('탈퇴가 완료되었습니다.');
                 window.location.href = 'index.html';

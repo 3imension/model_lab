@@ -18,7 +18,6 @@
         </header>
 
         <main class="card-section">
-            <!-- 🖼️ 1. 메인 이미지 배너 관리 -->
             <h3 style="margin-bottom: 12px;">🖼️ 메인 공지 이미지 게시/업로드</h3>
             <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:15px; border-radius:8px; margin-bottom: 30px;">
                 <div class="form-group">
@@ -27,17 +26,16 @@
                 </div>
                 
                 <div id="img-preview-wrap" style="margin: 10px 0; display:none;">
-                    <p style="font-size:0.85rem; color:#64748b; margin-bottom:4px;">[현재 게시 중인 이미지 미리보기]</p>
+                    <p style="font-size:0.85rem; color:#64748b; margin-bottom:4px;">[현재 게시 중인 이미지]</p>
                     <img id="img-preview" style="max-width: 100%; max-height: 250px; border-radius: 8px; border:1px solid #e2e8f0;">
                 </div>
 
                 <div class="form-row" style="margin-top:12px; gap:10px;">
-                    <button onclick="uploadNoticeImage()" class="nav-btn btn-primary">이미지 게시하기</button>
+                    <button onclick="uploadNoticeImage()" id="upload-btn" class="nav-btn btn-primary">이미지 게시하기</button>
                     <button onclick="deleteNoticeImage()" class="nav-btn btn-danger">게시된 이미지 삭제</button>
                 </div>
             </div>
 
-            <!-- 2. 회원 관리 -->
             <h3 style="margin-bottom: 15px;">2. 회원 가입 / 클래스 부여 / 시간 재승인 관리</h3>
             <table class="admin-table" style="margin-bottom: 30px;">
                 <thead>
@@ -49,7 +47,6 @@
                 <tbody id="admin-user-list"></tbody>
             </table>
 
-            <!-- 3. 전체 예약 현황 -->
             <h3 style="margin-bottom: 15px;">3. 전체 회원 예약 현황</h3>
             <table class="admin-table" style="margin-bottom: 30px;">
                 <thead>
@@ -86,7 +83,6 @@
         let adminYear = 2026, adminMonth = 8;
         let cachedBookings = [];
 
-        // 게시된 공지 이미지 불러오기
         function loadNoticeImageAdmin() {
             db.collection('settings').doc('notice_image').get().then(doc => {
                 if (doc.exists && doc.data().url) {
@@ -98,26 +94,61 @@
             });
         }
 
-        // 이미지 파일 인코딩 및 게시
+        // 이미지 리사이징 후 업로드
         function uploadNoticeImage() {
             const fileInput = document.getElementById('admin-img-file');
+            const btn = document.getElementById('upload-btn');
             if (!fileInput.files || !fileInput.files[0]) {
                 return alert('업로드할 이미지 파일을 선택해 주세요.');
             }
 
             const file = fileInput.files[0];
+            btn.disabled = true;
+            btn.textContent = '이미지 처리 중...';
+
             const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    const max_size = 900; // 가로/세로 최대 900px 축소
 
-            reader.onload = async function(e) {
-                const base64Image = e.target.result;
-                await db.collection('settings').doc('notice_image').set({
-                    url: base64Image,
-                    updatedAt: new Date()
-                });
-                alert('이미지 공지사항이 게시되었습니다.');
-                loadNoticeImageAdmin();
+                    if (width > height) {
+                        if (width > max_size) {
+                            height *= max_size / width;
+                            width = max_size;
+                        }
+                    } else {
+                        if (height > max_size) {
+                            width *= max_size / height;
+                            height = max_size;
+                        }
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+
+                    db.collection('settings').doc('notice_image').set({
+                        url: compressedBase64,
+                        updatedAt: new Date()
+                    }).then(() => {
+                        alert('이미지가 정상적으로 게시되었습니다.');
+                        loadNoticeImageAdmin();
+                    }).catch(err => {
+                        alert(`업로드 에러: ${err.message}`);
+                    }).finally(() => {
+                        btn.disabled = false;
+                        btn.textContent = '이미지 게시하기';
+                    });
+                };
+                img.src = e.target.result;
             };
-
             reader.readAsDataURL(file);
         }
 
@@ -138,8 +169,8 @@
                     const u = doc.data();
                     if (u.id === '3imension') return;
 
-                    const total = u.totalHours || 0;
-                    const used = u.usedHours || 0;
+                    const total = Number(u.totalHours || 0);
+                    const used = Number(u.usedHours || 0);
                     const isExpired = u.approved && (total <= used);
 
                     const tr = document.createElement('tr');
