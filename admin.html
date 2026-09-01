@@ -25,9 +25,10 @@
                     <input type="file" id="admin-img-file" accept="image/*" style="background:#fff; padding:8px;">
                 </div>
                 
-                <div id="img-preview-wrap" style="margin: 10px 0; display:none;">
-                    <p style="font-size:0.85rem; color:#64748b; margin-bottom:4px;">[현재 게시 중인 이미지]</p>
-                    <img id="img-preview" style="max-width: 100%; max-height: 250px; border-radius: 8px; border:1px solid #e2e8f0;">
+                <!-- 📸 게시 중 이미지 작게 표시 (작은 프리뷰) -->
+                <div id="img-preview-wrap" style="margin: 10px 0; display:none; background:#fff; padding:10px; border-radius:6px; border:1px solid #e2e8f0;">
+                    <p style="font-size:0.8rem; font-weight:bold; color:#475569; margin-bottom:6px;">[현재 게시 중인 이미지 배너]</p>
+                    <img id="img-preview" style="max-height: 120px; width: auto; border-radius: 6px; border:1px solid #cbd5e1;">
                 </div>
 
                 <div class="form-row" style="margin-top:12px; gap:10px;">
@@ -84,6 +85,7 @@
         let cachedBookings = [];
 
         function loadNoticeImageAdmin() {
+            if(!db) return;
             db.collection('settings').doc('notice_image').get().then(doc => {
                 if (doc.exists && doc.data().url) {
                     document.getElementById('img-preview').src = doc.data().url;
@@ -91,10 +93,9 @@
                 } else {
                     document.getElementById('img-preview-wrap').style.display = 'none';
                 }
-            });
+            }).catch(e => console.log(e));
         }
 
-        // 이미지 리사이징 후 업로드
         function uploadNoticeImage() {
             const fileInput = document.getElementById('admin-img-file');
             const btn = document.getElementById('upload-btn');
@@ -104,7 +105,7 @@
 
             const file = fileInput.files[0];
             btn.disabled = true;
-            btn.textContent = '이미지 처리 중...';
+            btn.textContent = '압축 업로드 중...';
 
             const reader = new FileReader();
             reader.onload = function(e) {
@@ -113,18 +114,12 @@
                     const canvas = document.createElement('canvas');
                     let width = img.width;
                     let height = img.height;
-                    const max_size = 900; // 가로/세로 최대 900px 축소
+                    const max_size = 600; // 가로/세로 600px 경량화
 
                     if (width > height) {
-                        if (width > max_size) {
-                            height *= max_size / width;
-                            width = max_size;
-                        }
+                        if (width > max_size) { height *= max_size / width; width = max_size; }
                     } else {
-                        if (height > max_size) {
-                            width *= max_size / height;
-                            height = max_size;
-                        }
+                        if (height > max_size) { width *= max_size / height; height = max_size; }
                     }
                     canvas.width = width;
                     canvas.height = height;
@@ -132,16 +127,16 @@
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
 
-                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
 
                     db.collection('settings').doc('notice_image').set({
                         url: compressedBase64,
                         updatedAt: new Date()
                     }).then(() => {
-                        alert('이미지가 정상적으로 게시되었습니다.');
+                        alert('이미지 게시가 완료되었습니다.');
                         loadNoticeImageAdmin();
                     }).catch(err => {
-                        alert(`업로드 에러: ${err.message}`);
+                        alert(`업로드 실패: ${err.message}`);
                     }).finally(() => {
                         btn.disabled = false;
                         btn.textContent = '이미지 게시하기';
@@ -161,6 +156,7 @@
         }
 
         function listenAdminData() {
+            if(!db) return;
             db.collection('users').onSnapshot(snapshot => {
                 const userList = document.getElementById('admin-user-list');
                 userList.innerHTML = '';

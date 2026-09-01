@@ -28,7 +28,7 @@
 
             <h3>내 좌석 예약 내역</h3>
             <table class="admin-table" style="margin-top: 10px;">
-                <thead><tr><th>예약 날짜</th><th>시간대</th><th>좌석</th><th>취소</th></tr></thead>
+                <thead><tr><th>예약 날짜</th><th>시간대</th><th>좌석</th><th>상태 / 취소</th></tr></thead>
                 <tbody id="my-booking-list">
                     <tr><td colspan="4">예약 내역을 불러오는 중...</td></tr>
                 </tbody>
@@ -48,7 +48,6 @@
             try {
                 if (!db) return;
 
-                // 1. 회원 정보 로드
                 const myId = String(session.id).trim();
                 const userDoc = await db.collection('users').doc(myId).get();
                 const user = userDoc.exists ? userDoc.data() : session;
@@ -67,7 +66,6 @@
                 document.getElementById('my-total').textContent = `${total} 시간`;
                 document.getElementById('my-remain').textContent = `${used} 시간 사용 / ${remain} 시간 남음`;
 
-                // 2. 예약 데이터 완벽 탐색 (아이디 연동 차이 방지 로직)
                 const snapshot = await db.collection('bookings').get();
                 const list = document.getElementById('my-booking-list');
                 list.innerHTML = '';
@@ -82,7 +80,6 @@
                     const bUserId = String(data.userId || '').trim().toLowerCase();
                     const bUserName = String(data.userName || '').trim().toLowerCase();
 
-                    // 아이디가 일치하거나 실명이 일치하면 내 예약으로 매진 처리
                     if ((bUserId && bUserId === searchId) || (searchName && bUserName === searchName)) {
                         myBookings.push({ docId: doc.id, ...data });
                     }
@@ -93,18 +90,27 @@
                     return;
                 }
 
-                // 날짜 오름차순 정렬
                 myBookings.sort((a, b) => a.date.localeCompare(b.date));
 
+                // 오늘 날짜 구하기 (YYYY-MM-DD)
+                const todayStr = new Date().toISOString().split('T')[0];
+
                 myBookings.forEach(b => {
+                    const isPast = b.date < todayStr; // 지난 날짜 여부 확인
                     const tr = document.createElement('tr');
+
+                    let statusBtnHTML = '';
+                    if (isPast) {
+                        statusBtnHTML = `<span style="background:#cbd5e1; color:#475569; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">사용완료</span>`;
+                    } else {
+                        statusBtnHTML = `<button onclick="cancelBooking('${b.docId}', ${b.hours || 4})" class="nav-btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;">예약 취소</button>`;
+                    }
+
                     tr.innerHTML = `
                         <td>${b.date}</td>
                         <td>${b.time}</td>
                         <td><strong style="color:#2563eb;">${b.seat}</strong></td>
-                        <td>
-                            <button onclick="cancelBooking('${b.docId}', ${b.hours || 4})" class="nav-btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;">예약 취소</button>
-                        </td>
+                        <td>${statusBtnHTML}</td>
                     `;
                     list.appendChild(tr);
                 });
@@ -119,10 +125,8 @@
             if (!confirm('해당 예약을 취소하시겠습니까?\n취소 시 사용된 시간이 다시 환불됩니다.')) return;
 
             try {
-                // 예약 DB 삭제
                 await db.collection('bookings').doc(docId).delete();
 
-                // 사용 유저 시간 차감 환불
                 const myId = String(session.id).trim();
                 const userRef = db.collection('users').doc(myId);
                 const userDoc = await userRef.get();

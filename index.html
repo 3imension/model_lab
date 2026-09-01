@@ -23,7 +23,7 @@
             </nav>
         </header>
 
-        <!-- 🖼️ 이미지 배너 영역 -->
+        <!-- 🖼️ 상단 공지 이미지 배너 -->
         <section class="card-section" id="notice-img-card" style="display:none; margin-bottom: 20px; text-align: center; padding: 15px;">
             <img id="main-notice-img" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
         </section>
@@ -45,7 +45,7 @@
 
         function loadNoticeImage() {
             if(!db) return;
-            db.collection('settings').doc('notice_image').get().then(doc => {
+            db.collection('settings').doc('notice_image').onSnapshot(doc => {
                 if (doc.exists && doc.data().url) {
                     const card = document.getElementById('notice-img-card');
                     const img = document.getElementById('main-notice-img');
@@ -54,7 +54,7 @@
                 } else {
                     document.getElementById('notice-img-card').style.display = 'none';
                 }
-            }).catch(e => console.log("Notice Error:", e));
+            }, err => console.log(err));
         }
 
         async function renderMainCalendar() {
