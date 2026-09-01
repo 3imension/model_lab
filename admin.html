@@ -18,27 +18,26 @@
         </header>
 
         <main class="card-section">
-            <h3 style="margin-bottom: 12px;">📢 메인 공지사항 작성</h3>
+            <!-- 🖼️ 1. 메인 이미지 배너 관리 -->
+            <h3 style="margin-bottom: 12px;">🖼️ 메인 공지 이미지 게시/업로드</h3>
             <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:15px; border-radius:8px; margin-bottom: 30px;">
                 <div class="form-group">
-                    <label>공지 내용</label>
-                    <textarea id="admin-notice-input" rows="3" placeholder="공지할 내용을 입력하세요" style="width:100%; padding:10px; border-radius:6px; border:1px solid #cbd5e1;"></textarea>
+                    <label>이미지 파일 선택 (JPG, PNG)</label>
+                    <input type="file" id="admin-img-file" accept="image/*" style="background:#fff; padding:8px;">
                 </div>
-                <div class="form-row" style="align-items:center; gap:15px; flex-wrap:wrap;">
-                    <label>글자 크기: 
-                        <input type="number" id="admin-notice-size" value="15" min="12" max="36" style="width:65px; padding:6px;"> px
-                    </label>
-                    <label>글자 굵기: 
-                        <select id="admin-notice-weight" style="width:110px; padding:6px;">
-                            <option value="normal">보통</option>
-                            <option value="bold">굵게 (Bold)</option>
-                        </select>
-                    </label>
-                    <button onclick="saveNotice()" class="nav-btn btn-primary">공지 저장 및 게시</button>
-                    <button onclick="deleteNotice()" class="nav-btn btn-danger">공지 삭제</button>
+                
+                <div id="img-preview-wrap" style="margin: 10px 0; display:none;">
+                    <p style="font-size:0.85rem; color:#64748b; margin-bottom:4px;">[현재 게시 중인 이미지 미리보기]</p>
+                    <img id="img-preview" style="max-width: 100%; max-height: 250px; border-radius: 8px; border:1px solid #e2e8f0;">
+                </div>
+
+                <div class="form-row" style="margin-top:12px; gap:10px;">
+                    <button onclick="uploadNoticeImage()" class="nav-btn btn-primary">이미지 게시하기</button>
+                    <button onclick="deleteNoticeImage()" class="nav-btn btn-danger">게시된 이미지 삭제</button>
                 </div>
             </div>
 
+            <!-- 2. 회원 관리 -->
             <h3 style="margin-bottom: 15px;">2. 회원 가입 / 클래스 부여 / 시간 재승인 관리</h3>
             <table class="admin-table" style="margin-bottom: 30px;">
                 <thead>
@@ -50,6 +49,7 @@
                 <tbody id="admin-user-list"></tbody>
             </table>
 
+            <!-- 3. 전체 예약 현황 -->
             <h3 style="margin-bottom: 15px;">3. 전체 회원 예약 현황</h3>
             <table class="admin-table" style="margin-bottom: 30px;">
                 <thead>
@@ -86,39 +86,47 @@
         let adminYear = 2026, adminMonth = 8;
         let cachedBookings = [];
 
-        function initNoticeAdmin() {
-            db.collection('settings').doc('notice').get().then(doc => {
-                if (doc.exists) {
-                    const data = doc.data();
-                    document.getElementById('admin-notice-input').value = data.content || '';
-                    document.getElementById('admin-notice-size').value = data.fontSize || 15;
-                    document.getElementById('admin-notice-weight').value = data.fontWeight || 'normal';
+        // 게시된 공지 이미지 불러오기
+        function loadNoticeImageAdmin() {
+            db.collection('settings').doc('notice_image').get().then(doc => {
+                if (doc.exists && doc.data().url) {
+                    document.getElementById('img-preview').src = doc.data().url;
+                    document.getElementById('img-preview-wrap').style.display = 'block';
+                } else {
+                    document.getElementById('img-preview-wrap').style.display = 'none';
                 }
             });
         }
 
-        async function saveNotice() {
-            const content = document.getElementById('admin-notice-input').value.trim();
-            const fontSize = parseInt(document.getElementById('admin-notice-size').value);
-            const fontWeight = document.getElementById('admin-notice-weight').value;
+        // 이미지 파일 인코딩 및 게시
+        function uploadNoticeImage() {
+            const fileInput = document.getElementById('admin-img-file');
+            if (!fileInput.files || !fileInput.files[0]) {
+                return alert('업로드할 이미지 파일을 선택해 주세요.');
+            }
 
-            if (!content) return alert('공지 내용을 입력해 주세요.');
+            const file = fileInput.files[0];
+            const reader = new FileReader();
 
-            await db.collection('settings').doc('notice').set({
-                content: content,
-                fontSize: fontSize,
-                fontWeight: fontWeight,
-                updatedAt: new Date()
-            });
+            reader.onload = async function(e) {
+                const base64Image = e.target.result;
+                await db.collection('settings').doc('notice_image').set({
+                    url: base64Image,
+                    updatedAt: new Date()
+                });
+                alert('이미지 공지사항이 게시되었습니다.');
+                loadNoticeImageAdmin();
+            };
 
-            alert('공지사항이 게시되었습니다.');
+            reader.readAsDataURL(file);
         }
 
-        async function deleteNotice() {
-            if(!confirm('공지사항을 삭제하시겠습니까?')) return;
-            await db.collection('settings').doc('notice').delete();
-            document.getElementById('admin-notice-input').value = '';
-            alert('공지사항이 삭제되었습니다.');
+        async function deleteNoticeImage() {
+            if(!confirm('게시된 공지 이미지를 삭제하시겠습니까?')) return;
+            await db.collection('settings').doc('notice_image').delete();
+            document.getElementById('img-preview-wrap').style.display = 'none';
+            document.getElementById('admin-img-file').value = '';
+            alert('이미지가 삭제되었습니다.');
         }
 
         function listenAdminData() {
@@ -280,10 +288,10 @@
         }
 
         document.getElementById('admin-prev-btn').onclick = () => { adminMonth--; if(adminMonth<0){adminMonth=11; adminYear--;} renderAdminCalendar(); };
-        document.getElementById('admin-next-btn').onclick = () => { adminMonth++; if(adminMonth>11){adminMonth=0; adminYear--;} renderAdminCalendar(); };
+        document.getElementById('admin-next-btn').onclick = () => { adminMonth++; if(adminMonth>11){adminMonth=0; adminYear++;} renderAdminCalendar(); };
 
         document.addEventListener('DOMContentLoaded', () => {
-            initNoticeAdmin();
+            loadNoticeImageAdmin();
             listenAdminData();
         });
     </script>

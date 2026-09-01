@@ -17,17 +17,15 @@
                     <span>노원구 공릉동 프라모델 / 3D 프린팅 공방</span>
                 </div>
             </a>
-            <!-- 자바스크립트 로딩 전에도 기본 노출되는 Fallback 버튼 -->
             <nav class="nav-buttons" id="nav-buttons">
                 <a href="login.html" class="nav-btn btn-secondary">로그인</a>
                 <a href="register.html" class="nav-btn btn-primary">회원가입</a>
             </nav>
         </header>
 
-        <!-- 공지사항 카드 -->
-        <section class="card-section" id="notice-card" style="display:none; margin-bottom: 20px; background: #fffbe2; border: 1px solid #ffe58f;">
-            <h3 style="color: #d48806; margin-bottom: 8px;">📢 공지사항</h3>
-            <div id="notice-content" style="line-height: 1.6; color: #1e293b; white-space: pre-wrap;"></div>
+        <!-- 🖼️ 상단 이미지 공지 배너 영역 -->
+        <section class="card-section" id="notice-img-card" style="display:none; margin-bottom: 20px; text-align: center; padding: 15px;">
+            <img id="main-notice-img" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
         </section>
 
         <main class="card-section">
@@ -45,22 +43,19 @@
     <script>
         let year = 2026, month = 8;
 
-        function loadNotice() {
+        // DB에서 메인 이미지 공지 불러오기
+        function loadNoticeImage() {
             if(!db) return;
-            db.collection('settings').doc('notice').onSnapshot(doc => {
-                if (doc.exists && doc.data().content) {
-                    const data = doc.data();
-                    const card = document.getElementById('notice-card');
-                    const content = document.getElementById('notice-content');
-                    
-                    content.textContent = data.content;
-                    content.style.fontSize = (data.fontSize || 15) + 'px';
-                    content.style.fontWeight = data.fontWeight || 'normal';
+            db.collection('settings').doc('notice_image').onSnapshot(doc => {
+                if (doc.exists && doc.data().url) {
+                    const card = document.getElementById('notice-img-card');
+                    const img = document.getElementById('main-notice-img');
+                    img.src = doc.data().url;
                     card.style.display = 'block';
                 } else {
-                    document.getElementById('notice-card').style.display = 'none';
+                    document.getElementById('notice-img-card').style.display = 'none';
                 }
-            }, err => console.log("Notice status:", err));
+            });
         }
 
         async function renderMainCalendar() {
@@ -88,9 +83,7 @@
                 try {
                     const snapshot = await db.collection('bookings').get();
                     bookings = snapshot.docs.map(doc => doc.data());
-                } catch(e) {
-                    console.warn("DB 연결 확인 중...", e);
-                }
+                } catch(e) {}
             }
 
             for (let d = 1; d <= last; d++) {
@@ -117,7 +110,7 @@
         document.getElementById('next-btn').onclick = () => { month++; if (month > 11) { month = 0; year--; } renderMainCalendar(); };
         
         document.addEventListener('DOMContentLoaded', () => {
-            loadNotice();
+            loadNoticeImage();
             renderMainCalendar();
         });
     </script>
