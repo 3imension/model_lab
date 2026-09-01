@@ -1,5 +1,6 @@
 // 제공해주신 3imension님의 실제 Firebase 키 값입니다.
 const firebaseConfig = {
+<<<<<<< HEAD
     apiKey: "AIzaSyDkP5efJB5qvfs1zT8YGzHNLOdYxNRna0E",
     authDomain: "model-lab-52a15.firebaseapp.com",
     projectId: "model-lab-52a15",
@@ -7,6 +8,15 @@ const firebaseConfig = {
     messagingSenderId: "821315950387",
     appId: "1:821315950387:web:40bf594e89728c35fa5046",
     measurementId: "G-XVF5XF31BD"
+=======
+  apiKey: "AIzaSyDkP5efJB5qvfs1zT8YGzHNLOdYxNRna0E",
+  authDomain: "model-lab-52a15.firebaseapp.com",
+  projectId: "model-lab-52a15",
+  storageBucket: "model-lab-52a15.firebasestorage.app",
+  messagingSenderId: "821315950387",
+  appId: "1:821315950387:web:40bf594e89728c35fa5046",
+  measurementId: "G-XVF5XF31BD"
+>>>>>>> ac77559185b24f3ca9dec159afd0f52d895fb3e3
 };
 
 // Firebase 초기화
