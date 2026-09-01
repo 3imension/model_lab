@@ -8,7 +8,6 @@ const firebaseConfig = {
   appId: "1:821315950387:web:40bf594e89728c35fa5046",
   measurementId: "G-XVF5XF31BD"
 };
-};
 
 // Firebase SDK 초기화
 if (!firebase.apps.length) {
