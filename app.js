@@ -1,6 +1,6 @@
-// ⚠️ 본인의 Firebase 발급 키로 교체해 주세요.
+// ⚠️ 아래 firebaseConfig에 본인의 실제 Firebase 키 정보를 넣으세요!
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
+    apiKey: "YOUR_API_KEY", // Firebase 콘솔의 실제 apiKey
     authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
     projectId: "YOUR_PROJECT_ID",
     storageBucket: "YOUR_PROJECT_ID.appspot.com",
@@ -8,6 +8,7 @@ const firebaseConfig = {
     appId: "YOUR_APP_ID"
 };
 
+// Firebase SDK 초기화
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }

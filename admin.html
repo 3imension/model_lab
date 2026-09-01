@@ -18,20 +18,29 @@
         </header>
 
         <main class="card-section">
-            <!-- 📢 1. 공지사항 작성 관리 -->
+            <!-- 📢 1. 공지사항 작성 및 디자인 조절 -->
             <h3 style="margin-bottom: 12px;">📢 메인 공지사항 작성</h3>
             <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:15px; border-radius:8px; margin-bottom: 30px;">
                 <div class="form-group">
                     <label>공지 내용</label>
-                    <textarea id="admin-notice-input" rows="3" style="width:100%; padding:10px; border-radius:6px; border:1px solid #cbd5e1;"></textarea>
+                    <textarea id="admin-notice-input" rows="3" placeholder="공지할 내용을 입력하세요" style="width:100%; padding:10px; border-radius:6px; border:1px solid #cbd5e1;"></textarea>
                 </div>
-                <div class="form-row" style="align-items:center; gap:12px;">
-                    <label>폰트 크기: <input type="number" id="admin-notice-size" value="14" min="10" max="32" style="width:60px; padding:6px;"> px</label>
-                    <button onclick="saveNotice()" class="nav-btn btn-primary">공지사항 게시/수정</button>
+                <div class="form-row" style="align-items:center; gap:15px; flex-wrap:wrap;">
+                    <label>글자 크기: 
+                        <input type="number" id="admin-notice-size" value="15" min="12" max="36" style="width:65px; padding:6px;"> px
+                    </label>
+                    <label>글자 굵기: 
+                        <select id="admin-notice-weight" style="width:100px; padding:6px;">
+                            <option value="normal">보통</option>
+                            <option value="bold">굵게 (Bold)</option>
+                        </select>
+                    </label>
+                    <button onclick="saveNotice()" class="nav-btn btn-primary">공지사항 저장 및 게시</button>
+                    <button onclick="deleteNotice()" class="nav-btn btn-danger">공지 삭제</button>
                 </div>
             </div>
 
-            <!-- 2. 회원 승인 및 시간 만료 재승인 -->
+            <!-- 2. 회원 관리 -->
             <h3 style="margin-bottom: 15px;">2. 회원 가입 / 클래스 부여 / 시간 재승인 관리</h3>
             <table class="admin-table" style="margin-bottom: 30px;">
                 <thead>
@@ -43,7 +52,7 @@
                 <tbody id="admin-user-list"></tbody>
             </table>
 
-            <!-- 3. 전체 회원 예약 현황 -->
+            <!-- 3. 전체 예약 현황 -->
             <h3 style="margin-bottom: 15px;">3. 전체 회원 예약 현황</h3>
             <table class="admin-table" style="margin-bottom: 30px;">
                 <thead>
@@ -80,27 +89,42 @@
         let adminYear = 2026, adminMonth = 8;
         let cachedBookings = [];
 
-        // 공지사항 불러오기 및 저장
+        // DB에서 공지사항 정보 불러오기
         function initNoticeAdmin() {
             db.collection('settings').doc('notice').get().then(doc => {
                 if (doc.exists) {
-                    document.getElementById('admin-notice-input').value = doc.data().content || '';
-                    document.getElementById('admin-notice-size').value = doc.data().fontSize || 14;
+                    const data = doc.data();
+                    document.getElementById('admin-notice-input').value = data.content || '';
+                    document.getElementById('admin-notice-size').value = data.fontSize || 15;
+                    document.getElementById('admin-notice-weight').value = data.fontWeight || 'normal';
                 }
             });
         }
 
+        // 공지사항 저장
         async function saveNotice() {
-            const content = document.getElementById('admin-notice-input').value;
+            const content = document.getElementById('admin-notice-input').value.trim();
             const fontSize = parseInt(document.getElementById('admin-notice-size').value);
+            const fontWeight = document.getElementById('admin-notice-weight').value;
+
+            if (!content) return alert('공지 내용을 입력해 주세요.');
 
             await db.collection('settings').doc('notice').set({
                 content: content,
                 fontSize: fontSize,
+                fontWeight: fontWeight,
                 updatedAt: new Date()
             });
 
-            alert('공지사항이 수정 및 게시되었습니다.');
+            alert('공지사항이 정상적으로 저장되었습니다.');
+        }
+
+        // 공지사항 삭제
+        async function deleteNotice() {
+            if(!confirm('공지사항을 삭제하시겠습니까?')) return;
+            await db.collection('settings').doc('notice').delete();
+            document.getElementById('admin-notice-input').value = '';
+            alert('공지사항이 삭제되었습니다.');
         }
 
         function listenAdminData() {
@@ -245,7 +269,6 @@
             alert(`${userId} 회원이 승인되었습니다.`);
         }
 
-        // 🔄 사용시간 재승인 (usedHours 초기화)
         async function reApproveUser(userId) {
             if(!confirm(`${userId} 회원의 사용시간을 초기화하여 재승인하시겠습니까?`)) return;
             await db.collection('users').doc(userId).update({ usedHours: 0 });
