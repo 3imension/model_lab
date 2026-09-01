@@ -1,6 +1,5 @@
-// 제공해주신 3imension님의 실제 Firebase 키 값입니다.
+// 3imension님의 Firebase 발급 키
 const firebaseConfig = {
-<<<<<<< HEAD
     apiKey: "AIzaSyDkP5efJB5qvfs1zT8YGzHNLOdYxNRna0E",
     authDomain: "model-lab-52a15.firebaseapp.com",
     projectId: "model-lab-52a15",
@@ -8,33 +7,37 @@ const firebaseConfig = {
     messagingSenderId: "821315950387",
     appId: "1:821315950387:web:40bf594e89728c35fa5046",
     measurementId: "G-XVF5XF31BD"
-=======
-  apiKey: "AIzaSyDkP5efJB5qvfs1zT8YGzHNLOdYxNRna0E",
-  authDomain: "model-lab-52a15.firebaseapp.com",
-  projectId: "model-lab-52a15",
-  storageBucket: "model-lab-52a15.firebasestorage.app",
-  messagingSenderId: "821315950387",
-  appId: "1:821315950387:web:40bf594e89728c35fa5046",
-  measurementId: "G-XVF5XF31BD"
->>>>>>> ac77559185b24f3ca9dec159afd0f52d895fb3e3
 };
 
-// Firebase 초기화
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
+// Firebase 초기화 예외 처리
+let db = null;
+try {
+    if (typeof firebase !== 'undefined') {
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        db = firebase.firestore();
+    }
+} catch (e) {
+    console.error("Firebase Initialize Error:", e);
 }
-const db = firebase.firestore();
 
 function getCurrentUser() {
-    return JSON.parse(localStorage.getItem('ml_session'));
+    try {
+        return JSON.parse(localStorage.getItem('ml_session'));
+    } catch(e) {
+        localStorage.removeItem('ml_session');
+        return null;
+    }
 }
 
+// 상단 네비게이션 버튼을 무조건 즉시 생성하도록 보장하는 함수
 function renderHeaderNav() {
     const nav = document.getElementById('nav-buttons');
     if (!nav) return;
 
     const session = getCurrentUser();
-    if (session) {
+    if (session && session.name) {
         let navHtml = `<span style="font-size:0.85rem; font-weight:bold; margin-right:8px;">${session.name}님</span>`;
         if (session.id === '3imension') {
             navHtml += `<a href="admin.html" class="nav-btn btn-primary">관리자 페이지</a>`;
@@ -47,6 +50,7 @@ function renderHeaderNav() {
         navHtml += `<button onclick="logout()" class="nav-btn btn-danger" style="margin-left:8px;">로그아웃</button>`;
         nav.innerHTML = navHtml;
     } else {
+        // 로그인 안 된 상태 (기본 로그인 / 회원가입 버튼)
         nav.innerHTML = `
             <a href="login.html" class="nav-btn btn-secondary">로그인</a>
             <a href="register.html" class="nav-btn btn-primary">회원가입</a>
@@ -60,4 +64,9 @@ function logout() {
     window.location.href = 'index.html';
 }
 
-document.addEventListener('DOMContentLoaded', renderHeaderNav);
+// DOM이 준비되는 즉시 헤더부터 강제로 출력
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', renderHeaderNav);
+} else {
+    renderHeaderNav();
+}
