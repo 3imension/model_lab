@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <title>Model Lab - 관리자 페이지</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -16,18 +18,33 @@
         </header>
 
         <main class="card-section">
-            <h3 style="margin-bottom: 15px;">1. 회원 가입 및 승인 / 클래스 부여 관리</h3>
+            <!-- 📢 1. 공지사항 작성 관리 -->
+            <h3 style="margin-bottom: 12px;">📢 메인 공지사항 작성</h3>
+            <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:15px; border-radius:8px; margin-bottom: 30px;">
+                <div class="form-group">
+                    <label>공지 내용</label>
+                    <textarea id="admin-notice-input" rows="3" style="width:100%; padding:10px; border-radius:6px; border:1px solid #cbd5e1;"></textarea>
+                </div>
+                <div class="form-row" style="align-items:center; gap:12px;">
+                    <label>폰트 크기: <input type="number" id="admin-notice-size" value="14" min="10" max="32" style="width:60px; padding:6px;"> px</label>
+                    <button onclick="saveNotice()" class="nav-btn btn-primary">공지사항 게시/수정</button>
+                </div>
+            </div>
+
+            <!-- 2. 회원 승인 및 시간 만료 재승인 -->
+            <h3 style="margin-bottom: 15px;">2. 회원 가입 / 클래스 부여 / 시간 재승인 관리</h3>
             <table class="admin-table" style="margin-bottom: 30px;">
                 <thead>
                     <tr>
-                        <th>아이디</th><th>실명</th><th>연락처</th><th>이메일</th>
-                        <th>승인상태</th><th>클래스 설정</th><th>처리</th>
+                        <th>아이디</th><th>실명</th><th>연락처</th><th>이용/총 시간</th>
+                        <th>승인상태</th><th>클래스 설정</th><th>처리 / 재승인</th>
                     </tr>
                 </thead>
                 <tbody id="admin-user-list"></tbody>
             </table>
 
-            <h3 style="margin-bottom: 15px;">2. 전체 회원 예약 현황</h3>
+            <!-- 3. 전체 회원 예약 현황 -->
+            <h3 style="margin-bottom: 15px;">3. 전체 회원 예약 현황</h3>
             <table class="admin-table" style="margin-bottom: 30px;">
                 <thead>
                     <tr><th>예약 날짜</th><th>시간대</th><th>좌석</th><th>회원 ID</th><th>회원 이름</th></tr>
@@ -35,7 +52,6 @@
                 <tbody id="admin-booking-list"></tbody>
             </table>
 
-            <!-- 하단 달력 현황판 영역 -->
             <div style="border-top: 2px dashed #e2e8f0; padding-top: 25px;">
                 <div class="calendar-nav-header">
                     <button id="admin-prev-btn" class="nav-btn btn-secondary">&lt; 이전 달</button>
@@ -43,16 +59,8 @@
                     <button id="admin-next-btn" class="nav-btn btn-secondary">다음 달 &gt;</button>
                 </div>
 
-                <div class="status-legend" style="margin-bottom: 15px;">
-                    <span class="legend-item"><i class="badge available"></i> 여유</span>
-                    <span class="legend-item"><i class="badge reserved"></i> 예약 있음</span>
-                    <span class="legend-item"><i class="badge full"></i> 매진</span>
-                </div>
-
-                <!-- 7열 달력 그리드 -->
                 <div id="admin-calendar-grid" class="monthly-calendar-grid"></div>
 
-                <!-- 선택 날짜별 4개 자리 상세 현황 -->
                 <div id="admin-day-detail" class="day-detail-card" style="margin-top: 25px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
                     <h3 id="admin-detail-title" style="margin-bottom: 12px; font-size: 1.1rem; color: #1e293b;">날짜를 클릭하면 해당 날짜의 좌석별 예약자가 표시됩니다.</h3>
                     <div id="admin-detail-slots" class="slots-container"></div>
@@ -69,82 +77,106 @@
             window.location.href = 'login.html';
         }
 
-        let adminYear = 2026;
-        let adminMonth = 8; // 8 = 9월
+        let adminYear = 2026, adminMonth = 8;
+        let cachedBookings = [];
 
-        // 1. 상단 회원 목록 및 예약 목록 렌더링
-        function renderAdminTables() {
-            const userList = document.getElementById('admin-user-list');
-            const users = getUsers().filter(u => u.id !== '3imension');
-            userList.innerHTML = '';
-
-            users.forEach(u => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${u.id}</td><td>${u.name}</td><td>${u.phone}</td><td>${u.email}</td>
-                    <td><span class="badge-status ${u.approved ? 'approved' : 'pending'}">${u.approved ? '승인완료' : '대기중'}</span></td>
-                    <td>
-                        <select onchange="updateClass('${u.id}', this.value)">
-                            <option value="미지정" ${u.classType === '미지정' ? 'selected':''}>미지정</option>
-                            <option value="BASIC_4" ${u.classType === 'BASIC_4' ? 'selected':''}>BASIC (월4회/16시간)</option>
-                            <option value="BASIC_8" ${u.classType === 'BASIC_8' ? 'selected':''}>BASIC (월8회/32시간)</option>
-                            <option value="BASIC_16" ${u.classType === 'BASIC_16' ? 'selected':''}>BASIC (월16회/64시간)</option>
-                            <option value="CREATOR" ${u.classType === 'CREATOR' ? 'selected':''}>CREATOR (월8회/32시간)</option>
-                        </select>
-                    </td>
-                    <td>
-                        ${!u.approved ? `<button onclick="approveUser('${u.id}')" class="nav-btn btn-success">승인하기</button>` : '승인됨'}
-                    </td>
-                `;
-                userList.appendChild(tr);
-            });
-
-            const bookingList = document.getElementById('admin-booking-list');
-            const bookings = getBookings();
-            bookingList.innerHTML = bookings.length === 0 ? '<tr><td colspan="5">예약 내역이 없습니다.</td></tr>' : '';
-
-            bookings.forEach(b => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `<td>${b.date}</td><td>${b.time}</td><td>${b.seat}</td><td>${b.userId}</td><td>${b.userName}</td>`;
-                bookingList.appendChild(tr);
+        // 공지사항 불러오기 및 저장
+        function initNoticeAdmin() {
+            db.collection('settings').doc('notice').get().then(doc => {
+                if (doc.exists) {
+                    document.getElementById('admin-notice-input').value = doc.data().content || '';
+                    document.getElementById('admin-notice-size').value = doc.data().fontSize || 14;
+                }
             });
         }
 
-        // 2. 하단 달력 렌더링
+        async function saveNotice() {
+            const content = document.getElementById('admin-notice-input').value;
+            const fontSize = parseInt(document.getElementById('admin-notice-size').value);
+
+            await db.collection('settings').doc('notice').set({
+                content: content,
+                fontSize: fontSize,
+                updatedAt: new Date()
+            });
+
+            alert('공지사항이 수정 및 게시되었습니다.');
+        }
+
+        function listenAdminData() {
+            db.collection('users').onSnapshot(snapshot => {
+                const userList = document.getElementById('admin-user-list');
+                userList.innerHTML = '';
+                
+                snapshot.docs.forEach(doc => {
+                    const u = doc.data();
+                    if (u.id === '3imension') return;
+
+                    const total = u.totalHours || 0;
+                    const used = u.usedHours || 0;
+                    const isExpired = u.approved && (total <= used);
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${u.id}</td><td>${u.name}</td><td>${u.phone}</td>
+                        <td>${used} / ${total}시간 ${isExpired ? '<br><b style="color:#ef4444; font-size:0.75rem;">[만료됨]</b>' : ''}</td>
+                        <td><span class="badge-status ${u.approved ? 'approved' : 'pending'}">${u.approved ? '승인완료' : '대기중'}</span></td>
+                        <td>
+                            <select onchange="updateClass('${u.id}', this.value)">
+                                <option value="미지정" ${u.classType === '미지정' ? 'selected':''}>미지정</option>
+                                <option value="BASIC_4" ${u.classType === 'BASIC_4' ? 'selected':''}>BASIC (월4회/16시간)</option>
+                                <option value="BASIC_8" ${u.classType === 'BASIC_8' ? 'selected':''}>BASIC (월8회/32시간)</option>
+                                <option value="BASIC_16" ${u.classType === 'BASIC_16' ? 'selected':''}>BASIC (월16회/64시간)</option>
+                                <option value="CREATOR" ${u.classType === 'CREATOR' ? 'selected':''}>CREATOR (월8회/32시간)</option>
+                            </select>
+                        </td>
+                        <td>
+                            ${!u.approved ? `<button onclick="approveUser('${u.id}')" class="nav-btn btn-success">승인하기</button>` : ''}
+                            ${isExpired ? `<button onclick="reApproveUser('${u.id}')" class="nav-btn btn-primary" style="margin-top:2px;">시간 재승인</button>` : ''}
+                            ${u.approved && !isExpired ? '<span style="color:#16a34a; font-weight:bold;">정상 이용중</span>' : ''}
+                        </td>
+                    `;
+                    userList.appendChild(tr);
+                });
+            });
+
+            db.collection('bookings').onSnapshot(snapshot => {
+                cachedBookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                const bookingList = document.getElementById('admin-booking-list');
+                bookingList.innerHTML = cachedBookings.length === 0 ? '<tr><td colspan="5">예약 내역이 없습니다.</td></tr>' : '';
+
+                cachedBookings.forEach(b => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${b.date}</td><td>${b.time}</td><td>${b.seat}</td><td>${b.userId}</td><td>${b.userName}</td>`;
+                    bookingList.appendChild(tr);
+                });
+
+                renderAdminCalendar();
+            });
+        }
+
         function renderAdminCalendar() {
             document.getElementById('admin-month-title').textContent = `${adminYear}년 ${adminMonth + 1}월`;
             const grid = document.getElementById('admin-calendar-grid');
             grid.innerHTML = '';
 
-            const headers = [
-                { text: '일', class: 'sun' }, { text: '월', class: '' }, { text: '화', class: '' },
-                { text: '수', class: '' }, { text: '목', class: '' }, { text: '금', class: '' }, { text: '토', class: 'sat' }
-            ];
-
-            headers.forEach(h => {
-                const div = document.createElement('div');
-                div.className = `calendar-day-header ${h.class}`.trim();
-                div.textContent = h.text;
-                grid.appendChild(div);
-            });
+            const headers = ['일','월','화','수','목','금','토'];
+            headers.forEach(h => grid.appendChild(Object.assign(document.createElement('div'), {className:'calendar-day-header', textContent:h})));
 
             const first = new Date(adminYear, adminMonth, 1).getDay();
             const last = new Date(adminYear, adminMonth + 1, 0).getDate();
-            const bookings = getBookings();
 
-            for (let i = 0; i < first; i++) {
-                grid.appendChild(Object.assign(document.createElement('div'), { className: 'calendar-day-cell empty' }));
-            }
+            for (let i = 0; i < first; i++) grid.appendChild(Object.assign(document.createElement('div'), { className: 'calendar-day-cell empty' }));
 
             for (let d = 1; d <= last; d++) {
                 const dateStr = `${adminYear}-${String(adminMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                 const dayOfWeek = new Date(adminYear, adminMonth, d).getDay();
-                const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
-                const slots = isWeekend ? 
+                const slots = (dayOfWeek === 0 || dayOfWeek === 6) ? 
                     ["10:00 - 14:00 (주말 1부)", "14:00 - 18:00 (주말 2부)", "18:00 - 22:00 (주말 3부)"] : 
                     ["19:00 - 23:00 (평일 야간)"];
 
-                const dayBookings = bookings.filter(b => b.date === dateStr);
+                const dayBookings = cachedBookings.filter(b => b.date === dateStr);
                 const count = dayBookings.length;
                 const totalCap = slots.length * 4;
 
@@ -157,27 +189,24 @@
                     </span>
                 `;
 
-                cell.addEventListener('click', () => {
+                cell.onclick = () => {
                     document.querySelectorAll('#admin-calendar-grid .calendar-day-cell').forEach(c => c.classList.remove('selected'));
                     cell.classList.add('selected');
                     showDaySeatDetails(dateStr, slots);
-                });
+                };
 
                 grid.appendChild(cell);
             }
         }
 
-        // 3. 날짜 클릭 시 4개 자리의 예약자 현황 표기
         function showDaySeatDetails(dateStr, slots) {
             const title = document.getElementById('admin-detail-title');
             const container = document.getElementById('admin-detail-slots');
             title.textContent = `📌 ${dateStr} 좌석별 예약 현황`;
             container.innerHTML = '';
 
-            const allBookings = getBookings();
-
             slots.forEach(slot => {
-                const slotBookings = allBookings.filter(b => b.date === dateStr && b.time === slot);
+                const slotBookings = cachedBookings.filter(b => b.date === dateStr && b.time === slot);
                 const slotBox = document.createElement('div');
                 slotBox.className = 'slot-item';
                 slotBox.style.marginBottom = '10px';
@@ -211,48 +240,34 @@
             });
         }
 
-        // 유저 승인 및 클래스 변경 기능
-        function approveUser(userId) {
-            let users = getUsers();
-            let u = users.find(x => x.id === userId);
-            if(u) u.approved = true;
-            localStorage.setItem('ml_users', JSON.stringify(users));
+        async function approveUser(userId) {
+            await db.collection('users').doc(userId).update({ approved: true });
             alert(`${userId} 회원이 승인되었습니다.`);
-            renderAdminTables();
-            renderAdminCalendar();
         }
 
-        function updateClass(userId, classVal) {
-            let users = getUsers();
-            let u = users.find(x => x.id === userId);
-            if(u) {
-                u.classType = classVal;
-                if(classVal === 'BASIC_4') u.totalHours = 16;
-                else if(classVal === 'BASIC_8' || classVal === 'CREATOR') u.totalHours = 32;
-                else if(classVal === 'BASIC_16') u.totalHours = 64;
-                else u.totalHours = 0;
-            }
-            localStorage.setItem('ml_users', JSON.stringify(users));
+        // 🔄 사용시간 재승인 (usedHours 초기화)
+        async function reApproveUser(userId) {
+            if(!confirm(`${userId} 회원의 사용시간을 초기화하여 재승인하시겠습니까?`)) return;
+            await db.collection('users').doc(userId).update({ usedHours: 0 });
+            alert(`${userId} 회원의 시간이 재승인되었습니다.`);
+        }
+
+        async function updateClass(userId, classVal) {
+            let total = 0;
+            if(classVal === 'BASIC_4') total = 16;
+            else if(classVal === 'BASIC_8' || classVal === 'CREATOR') total = 32;
+            else if(classVal === 'BASIC_16') total = 64;
+
+            await db.collection('users').doc(userId).update({ classType: classVal, totalHours: total });
             alert('클래스 정보가 업데이트되었습니다.');
-            renderAdminTables();
         }
 
-        // 이전/다음 달 이동 버튼
-        document.getElementById('admin-prev-btn').onclick = () => {
-            adminMonth--;
-            if (adminMonth < 0) { adminMonth = 11; adminYear--; }
-            renderAdminCalendar();
-        };
-
-        document.getElementById('admin-next-btn').onclick = () => {
-            adminMonth++;
-            if (adminMonth > 11) { adminMonth = 0; adminYear++; }
-            renderAdminCalendar();
-        };
+        document.getElementById('admin-prev-btn').onclick = () => { adminMonth--; if(adminMonth<0){adminMonth=11; adminYear--;} renderAdminCalendar(); };
+        document.getElementById('admin-next-btn').onclick = () => { adminMonth++; if(adminMonth>11){adminMonth=0; adminYear++;} renderAdminCalendar(); };
 
         document.addEventListener('DOMContentLoaded', () => {
-            renderAdminTables();
-            renderAdminCalendar();
+            initNoticeAdmin();
+            listenAdminData();
         });
     </script>
 </body>
