@@ -25,7 +25,6 @@
                     <input type="file" id="admin-img-file" accept="image/*" style="background:#fff; padding:8px;">
                 </div>
                 
-                <!-- 📸 게시 중 이미지 작게 표시 (작은 프리뷰) -->
                 <div id="img-preview-wrap" style="margin: 10px 0; display:none; background:#fff; padding:10px; border-radius:6px; border:1px solid #e2e8f0;">
                     <p style="font-size:0.8rem; font-weight:bold; color:#475569; margin-bottom:6px;">[현재 게시 중인 이미지 배너]</p>
                     <img id="img-preview" style="max-height: 120px; width: auto; border-radius: 6px; border:1px solid #cbd5e1;">
@@ -48,10 +47,13 @@
                 <tbody id="admin-user-list"></tbody>
             </table>
 
+            <!-- 3. 전체 회원 예약 현황 (상태 열 추가) -->
             <h3 style="margin-bottom: 15px;">3. 전체 회원 예약 현황</h3>
             <table class="admin-table" style="margin-bottom: 30px;">
                 <thead>
-                    <tr><th>예약 날짜</th><th>시간대</th><th>좌석</th><th>회원 ID</th><th>회원 이름</th></tr>
+                    <tr>
+                        <th>예약 날짜</th><th>시간대</th><th>좌석</th><th>회원 ID</th><th>회원 이름</th><th>상태</th>
+                    </tr>
                 </thead>
                 <tbody id="admin-booking-list"></tbody>
             </table>
@@ -114,7 +116,7 @@
                     const canvas = document.createElement('canvas');
                     let width = img.width;
                     let height = img.height;
-                    const max_size = 600; // 가로/세로 600px 경량화
+                    const max_size = 600;
 
                     if (width > height) {
                         if (width > max_size) { height *= max_size / width; width = max_size; }
@@ -153,6 +155,35 @@
             document.getElementById('img-preview-wrap').style.display = 'none';
             document.getElementById('admin-img-file').value = '';
             alert('이미지가 삭제되었습니다.');
+        }
+
+        // 예약 상태 판별 함수
+        function getBookingStatusBadge(dateStr, timeStr) {
+            const now = new Date();
+            const todayStr = now.toISOString().split('T')[0];
+
+            if (dateStr < todayStr) {
+                return `<span style="background:#cbd5e1; color:#475569; padding:4px 8px; border-radius:4px; font-size:0.78rem; font-weight:bold;">사용완료</span>`;
+            } else if (dateStr > todayStr) {
+                return `<span style="background:#dbeafe; color:#1d4ed8; padding:4px 8px; border-radius:4px; font-size:0.78rem; font-weight:bold;">예약중</span>`;
+            } else {
+                // 오늘 날짜인 경우 시간대 비교
+                const currentHour = now.getHours();
+                let startHour = 0, endHour = 24;
+
+                if (timeStr.includes("10:00 - 14:00")) { startHour = 10; endHour = 14; }
+                else if (timeStr.includes("14:00 - 18:00")) { startHour = 14; endHour = 18; }
+                else if (timeStr.includes("18:00 - 22:00")) { startHour = 18; endHour = 22; }
+                else if (timeStr.includes("19:00 - 23:00")) { startHour = 19; endHour = 23; }
+
+                if (currentHour >= startHour && currentHour < endHour) {
+                    return `<span style="background:#dcfce7; color:#15803d; padding:4px 8px; border-radius:4px; font-size:0.78rem; font-weight:bold;">이용중</span>`;
+                } else if (currentHour >= endHour) {
+                    return `<span style="background:#cbd5e1; color:#475569; padding:4px 8px; border-radius:4px; font-size:0.78rem; font-weight:bold;">사용완료</span>`;
+                } else {
+                    return `<span style="background:#dbeafe; color:#1d4ed8; padding:4px 8px; border-radius:4px; font-size:0.78rem; font-weight:bold;">예약중</span>`;
+                }
+            }
         }
 
         function listenAdminData() {
@@ -196,12 +227,23 @@
             db.collection('bookings').onSnapshot(snapshot => {
                 cachedBookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 
+                // 날짜 오름차순 정렬
+                cachedBookings.sort((a, b) => a.date.localeCompare(b.date));
+
                 const bookingList = document.getElementById('admin-booking-list');
-                bookingList.innerHTML = cachedBookings.length === 0 ? '<tr><td colspan="5">예약 내역이 없습니다.</td></tr>' : '';
+                bookingList.innerHTML = cachedBookings.length === 0 ? '<tr><td colspan="6">예약 내역이 없습니다.</td></tr>' : '';
 
                 cachedBookings.forEach(b => {
+                    const statusBadge = getBookingStatusBadge(b.date, b.time || '');
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `<td>${b.date}</td><td>${b.time}</td><td>${b.seat}</td><td>${b.userId}</td><td>${b.userName}</td>`;
+                    tr.innerHTML = `
+                        <td>${b.date}</td>
+                        <td>${b.time}</td>
+                        <td><strong style="color:#2563eb;">${b.seat}</strong></td>
+                        <td>${b.userId}</td>
+                        <td>${b.userName}</td>
+                        <td>${statusBadge}</td>
+                    `;
                     bookingList.appendChild(tr);
                 });
 
