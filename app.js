@@ -1,14 +1,15 @@
-// ⚠️ 아래 firebaseConfig에 본인의 실제 Firebase 키 정보를 넣으세요!
+// 제공해주신 3imension님의 실제 Firebase 키 값입니다.
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY", // Firebase 콘솔의 실제 apiKey
-    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT_ID.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyDkP5efJB5qvfs1zT8YGzHNLOdYxNRna0E",
+    authDomain: "model-lab-52a15.firebaseapp.com",
+    projectId: "model-lab-52a15",
+    storageBucket: "model-lab-52a15.firebasestorage.app",
+    messagingSenderId: "821315950387",
+    appId: "1:821315950387:web:40bf594e89728c35fa5046",
+    measurementId: "G-XVF5XF31BD"
 };
 
-// Firebase SDK 초기화
+// Firebase 초기화
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }

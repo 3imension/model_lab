@@ -20,7 +20,7 @@
             <nav class="nav-buttons" id="nav-buttons"></nav>
         </header>
 
-        <!-- 📢 메인 공지사항 표시 영역 -->
+        <!-- 공지사항 카드 -->
         <section class="card-section" id="notice-card" style="display:none; margin-bottom: 20px; background: #fffbe2; border: 1px solid #ffe58f;">
             <h3 style="color: #d48806; margin-bottom: 8px;">📢 공지사항</h3>
             <div id="notice-content" style="line-height: 1.6; color: #1e293b; white-space: pre-wrap;"></div>
@@ -36,11 +36,11 @@
             <div id="calendar-grid" class="monthly-calendar-grid"></div>
         </main>
     </div>
+
     <script src="app.js"></script>
     <script>
         let year = 2026, month = 8;
 
-        // DB에서 실시간 공지사항 감지 후 출력
         function loadNotice() {
             db.collection('settings').doc('notice').onSnapshot(doc => {
                 if (doc.exists && doc.data().content) {
@@ -55,7 +55,7 @@
                 } else {
                     document.getElementById('notice-card').style.display = 'none';
                 }
-            }, err => console.error("Notice Load Error:", err));
+            }, err => console.log("Notice status:", err));
         }
 
         async function renderMainCalendar() {
@@ -74,39 +74,42 @@
             const first = new Date(year, month, 1).getDay();
             const last = new Date(year, month + 1, 0).getDate();
 
+            for (let i = 0; i < first; i++) {
+                grid.appendChild(Object.assign(document.createElement('div'), { className: 'calendar-day-cell empty' }));
+            }
+
+            // DB 오류 시에도 기본 달력 틀은 생성되도록 보장
+            let bookings = [];
             try {
                 const snapshot = await db.collection('bookings').get();
-                const bookings = snapshot.docs.map(doc => doc.data());
-
-                for (let i = 0; i < first; i++) {
-                    grid.appendChild(Object.assign(document.createElement('div'), { className: 'calendar-day-cell empty' }));
-                }
-
-                for (let d = 1; d <= last; d++) {
-                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                    const dayOfWeek = new Date(year, month, d).getDay();
-                    const slotsCount = (dayOfWeek === 0 || dayOfWeek === 6) ? 3 : 1;
-                    const totalCap = slotsCount * 4;
-
-                    const count = bookings.filter(b => b.date === dateStr).length;
-
-                    const cell = document.createElement('div');
-                    cell.className = 'calendar-day-cell';
-                    cell.innerHTML = `
-                        <span class="day-number">${d}</span>
-                        <span class="day-status-badge ${count >= totalCap ? 'full' : count > 0 ? 'reserved' : 'available'}">
-                            ${count >= totalCap ? '매진' : count > 0 ? `${count}/${totalCap} 완료` : '여유'}
-                        </span>
-                    `;
-                    grid.appendChild(cell);
-                }
+                bookings = snapshot.docs.map(doc => doc.data());
             } catch(e) {
-                console.error("Calendar Load Error:", e);
+                console.warn("DB 로딩 대기 중...", e);
+            }
+
+            for (let d = 1; d <= last; d++) {
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                const dayOfWeek = new Date(year, month, d).getDay();
+                const slotsCount = (dayOfWeek === 0 || dayOfWeek === 6) ? 3 : 1;
+                const totalCap = slotsCount * 4;
+
+                const count = bookings.filter(b => b.date === dateStr).length;
+
+                const cell = document.createElement('div');
+                cell.className = 'calendar-day-cell';
+                cell.innerHTML = `
+                    <span class="day-number">${d}</span>
+                    <span class="day-status-badge ${count >= totalCap ? 'full' : count > 0 ? 'reserved' : 'available'}">
+                        ${count >= totalCap ? '매진' : count > 0 ? `${count}/${totalCap} 완료` : '여유'}
+                    </span>
+                `;
+                grid.appendChild(cell);
             }
         }
 
         document.getElementById('prev-btn').onclick = () => { month--; if (month < 0) { month = 11; year--; } renderMainCalendar(); };
         document.getElementById('next-btn').onclick = () => { month++; if (month > 11) { month = 0; year++; } renderMainCalendar(); };
+        
         document.addEventListener('DOMContentLoaded', () => {
             loadNotice();
             renderMainCalendar();

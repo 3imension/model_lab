@@ -58,8 +58,11 @@
             const first = new Date(2026, 8, 1).getDay();
             const last = new Date(2026, 9, 0).getDate();
 
-            const snapshot = await db.collection('bookings').get();
-            const bookings = snapshot.docs.map(d => d.data());
+            let bookings = [];
+            try {
+                const snapshot = await db.collection('bookings').get();
+                bookings = snapshot.docs.map(d => d.data());
+            } catch(e) {}
 
             for(let i=0; i<first; i++) cal.appendChild(Object.assign(document.createElement('div'), {className:'calendar-day-cell empty'}));
 
@@ -121,7 +124,6 @@
         });
 
         document.getElementById('confirm-btn').onclick = async () => {
-            // 🛑 만료 여부 검사
             const userRef = db.collection('users').doc(session.id);
             const userDoc = await userRef.get();
             if (!userDoc.exists) return;
