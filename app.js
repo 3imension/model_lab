@@ -19,7 +19,7 @@ try {
         db = firebase.firestore();
     }
 } catch (e) {
-    console.error("Firebase Initialize Error:", e);
+    console.error("Firebase 초기화 에러:", e);
 }
 
 function getCurrentUser() {
@@ -31,7 +31,6 @@ function getCurrentUser() {
     }
 }
 
-// 상단 네비게이션 버튼을 무조건 즉시 생성하도록 보장하는 함수
 function renderHeaderNav() {
     const nav = document.getElementById('nav-buttons');
     if (!nav) return;
@@ -50,7 +49,6 @@ function renderHeaderNav() {
         navHtml += `<button onclick="logout()" class="nav-btn btn-danger" style="margin-left:8px;">로그아웃</button>`;
         nav.innerHTML = navHtml;
     } else {
-        // 로그인 안 된 상태 (기본 로그인 / 회원가입 버튼)
         nav.innerHTML = `
             <a href="login.html" class="nav-btn btn-secondary">로그인</a>
             <a href="register.html" class="nav-btn btn-primary">회원가입</a>
@@ -64,7 +62,6 @@ function logout() {
     window.location.href = 'index.html';
 }
 
-// DOM이 준비되는 즉시 헤더부터 강제로 출력
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', renderHeaderNav);
 } else {
