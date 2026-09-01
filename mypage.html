@@ -48,8 +48,9 @@
             try {
                 if (!db) return;
 
-                // 1. 유저 정보 조회
-                const userDoc = await db.collection('users').doc(String(session.id).trim()).get();
+                // 1. 회원 정보 로드
+                const myId = String(session.id).trim();
+                const userDoc = await db.collection('users').doc(myId).get();
                 const user = userDoc.exists ? userDoc.data() : session;
 
                 document.getElementById('my-name').textContent = user.name || '-';
@@ -66,17 +67,23 @@
                 document.getElementById('my-total').textContent = `${total} 시간`;
                 document.getElementById('my-remain').textContent = `${used} 시간 사용 / ${remain} 시간 남음`;
 
-                // 2. 전체 예약 데이터 조회 후 대소문자/공백 무시 필터링
+                // 2. 예약 데이터 완벽 탐색 (아이디 연동 차이 방지 로직)
                 const snapshot = await db.collection('bookings').get();
                 const list = document.getElementById('my-booking-list');
                 list.innerHTML = '';
 
-                const myUserId = String(session.id).trim().toLowerCase();
+                const searchId = myId.toLowerCase();
+                const searchName = String(user.name || '').trim().toLowerCase();
+
                 const myBookings = [];
 
                 snapshot.docs.forEach(doc => {
                     const data = doc.data();
-                    if (data.userId && String(data.userId).trim().toLowerCase() === myUserId) {
+                    const bUserId = String(data.userId || '').trim().toLowerCase();
+                    const bUserName = String(data.userName || '').trim().toLowerCase();
+
+                    // 아이디가 일치하거나 실명이 일치하면 내 예약으로 매진 처리
+                    if ((bUserId && bUserId === searchId) || (searchName && bUserName === searchName)) {
                         myBookings.push({ docId: doc.id, ...data });
                     }
                 });
@@ -86,7 +93,7 @@
                     return;
                 }
 
-                // 날짜 오름차순 정렬 후 표 출력
+                // 날짜 오름차순 정렬
                 myBookings.sort((a, b) => a.date.localeCompare(b.date));
 
                 myBookings.forEach(b => {
@@ -103,7 +110,7 @@
                 });
 
             } catch (err) {
-                console.error("MyPage Load Error:", err);
+                console.error("MyPage Error:", err);
                 document.getElementById('my-booking-list').innerHTML = `<tr><td colspan="4" style="color:red;">내역 로딩 오류: ${err.message}</td></tr>`;
             }
         }
@@ -112,9 +119,12 @@
             if (!confirm('해당 예약을 취소하시겠습니까?\n취소 시 사용된 시간이 다시 환불됩니다.')) return;
 
             try {
+                // 예약 DB 삭제
                 await db.collection('bookings').doc(docId).delete();
 
-                const userRef = db.collection('users').doc(String(session.id).trim());
+                // 사용 유저 시간 차감 환불
+                const myId = String(session.id).trim();
+                const userRef = db.collection('users').doc(myId);
                 const userDoc = await userRef.get();
                 if (userDoc.exists) {
                     const currentUsed = Number(userDoc.data().usedHours || 0);
