@@ -29,9 +29,9 @@
                 <tr><th>총 제공 시간</th><td id="my-total">-</td><th>사용 / 잔여 시간</th><td id="my-remain">-</td></tr>
             </table>
 
-            <!-- 클래스 신청/연장 영역 -->
+            <!-- 클래스 신청/변경 영역 (한도 차면 버튼 비활성화) -->
             <div style="background: #f8fafc; border: 1px solid #cbd5e1; padding: 16px; border-radius: 8px; margin-bottom: 25px;">
-                <h3 style="font-size: 1rem; margin-bottom: 10px; color: #1e293b;">📋 이용 클래스 신청 / 연장</h3>
+                <h3 style="font-size: 1rem; margin-bottom: 10px; color: #1e293b;">📋 이용 클래스 신청 / 변경</h3>
                 <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
                     <select id="user-class-select" style="max-width: 320px;" onchange="togglePassSeatSelect()">
                         <option value="">클래스를 선택하세요</option>
@@ -49,10 +49,9 @@
                         <option value="M03">M03 좌석 지정</option>
                     </select>
 
-                    <!-- 만료 여부에 따라 파란색 [신청] / 빨간색 [연장 신청] 버튼 전환 -->
                     <button id="class-submit-btn" onclick="requestClassChange()" class="nav-btn btn-primary">클래스 신청하기</button>
                 </div>
-                <p style="font-size: 0.8rem; color: #64748b; margin-top: 8px;">* 신청 후 공방장(관리자)의 승인을 받으면 예약을 진행하실 수 있습니다.</p>
+                <p id="class-notice-text" style="font-size: 0.8rem; color: #64748b; margin-top: 8px;">* 신청 후 공방장(관리자)의 승인을 받으면 예약을 진행하실 수 있습니다.</p>
             </div>
 
             <h3>내 좌석 예약 내역</h3>
@@ -105,17 +104,26 @@
                 document.getElementById('my-total').textContent = `${total} 시간`;
                 document.getElementById('my-remain').textContent = `${used} 시간 사용 / ${remain} 시간 남음`;
 
-                // 📌 사용시간이 0이하이거나 만료된 경우 연장 신청 버튼으로 변경
+                // 🛑 한도 초과 시 오버부킹 차단 및 신청 버튼 상태 변경
                 const submitBtn = document.getElementById('class-submit-btn');
-                if (remain <= 0 && total > 0) {
-                    submitBtn.textContent = '클래스 연장 신청';
-                    submitBtn.className = 'nav-btn btn-warning-renew';
+                const classSelect = document.getElementById('user-class-select');
+                const noticeText = document.getElementById('class-notice-text');
+
+                if (user.approved && total > 0 && total <= used) {
+                    submitBtn.disabled = true;
+                    submitBtn.className = "nav-btn btn-disabled";
+                    submitBtn.textContent = "이용 한도 초과";
+                    classSelect.disabled = true;
+                    noticeText.textContent = "⚠️ 이용 제공 시간이 모두 차서 더 이상 변경이 불가능합니다. 관리자의 재승인을 받으세요.";
+                    noticeText.style.color = "#d97706";
                 } else {
-                    submitBtn.textContent = '클래스 신청하기';
-                    submitBtn.className = 'nav-btn btn-primary';
+                    submitBtn.disabled = false;
+                    submitBtn.className = "nav-btn btn-primary";
+                    submitBtn.textContent = "클래스 신청하기";
+                    classSelect.disabled = false;
                 }
 
-                // 예약 내역 쿼리 속도 최적화
+                // 예약 내역 로드
                 const snapshot = await db.collection('bookings').where('userId', '==', myId).get();
                 const list = document.getElementById('my-booking-list');
                 list.innerHTML = '';
@@ -129,8 +137,10 @@
 
                 myBookings.sort((a, b) => a.date.localeCompare(b.date));
 
-                const todayStr = getLocalDateString();
-                const currentHour = new Date().getHours();
+                const now = new Date();
+                // 브라우저 호환 표준 로컬 YYYY-MM-DD
+                const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                const currentHour = now.getHours();
 
                 myBookings.forEach(b => {
                     const tr = document.createElement('tr');

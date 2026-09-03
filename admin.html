@@ -39,13 +39,13 @@
                 </div>
             </div>
 
-            <!-- "월" 단어가 완전히 제외된 클래스 선택 메뉴 -->
-            <h3 style="margin-bottom: 15px;">2. 회원 가입 / 클래스 부여 / 시간 재승인 관리</h3>
+            <!-- 2. 회원 목록 (가입일자, 클래스 사용 횟수 표기 추가) -->
+            <h3 style="margin-bottom: 15px;">2. 회원 목록 및 클래스 승인 관리</h3>
             <table class="admin-table" style="margin-bottom: 30px;">
                 <thead>
                     <tr>
-                        <th>아이디</th><th>실명</th><th>연락처</th><th>이용/총 시간</th>
-                        <th>승인상태</th><th>클래스 / 자유이용권 설정</th><th>처리 / 재승인</th>
+                        <th>가입일자</th><th>아이디</th><th>실명</th><th>연락처</th>
+                        <th>신청 클래스</th><th>사용 횟수 / 시간</th><th>승인 상태</th><th>처리 / 시간 재승인</th>
                     </tr>
                 </thead>
                 <tbody id="admin-user-list"></tbody>
@@ -111,7 +111,7 @@
         const now = new Date();
         let adminYear = now.getFullYear();
         let adminMonth = now.getMonth();
-        const todayStr = now.toISOString().split('T')[0];
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
         let cachedBookings = [];
         let cachedUsersMap = {};
@@ -257,6 +257,18 @@
             });
         }
 
+        function getClassTitle(code) {
+            const map = {
+                'BASIC_1': 'BASIC (1회/5시간)',
+                'BASIC_4': 'BASIC (4회/20시간)',
+                'BASIC_8': 'BASIC (8회/40시간)',
+                'BASIC_16': 'BASIC (16회/80시간)',
+                'FREE_PASS': '자유이용권',
+                'CREATOR': 'CREATOR (8회/40시간)'
+            };
+            return map[code] || code || '미지정';
+        }
+
         function listenAdminData() {
             if(!db) return;
 
@@ -274,32 +286,36 @@
                     const used = Number(u.usedHours || 0);
                     const isExpired = u.approved && (total <= used);
 
+                    // 1회당 5시간 기준 사용 횟수 계산
+                    const usedCount = Math.floor(used / 5);
+                    const totalCount = Math.floor(total / 5);
+
+                    // 가입 일자 변환
+                    let regDateStr = '-';
+                    if (u.createdAt) {
+                        const dateObj = u.createdAt.toDate ? u.createdAt.toDate() : new Date(u.createdAt);
+                        regDateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+                    }
+
+                    let displayClass = getClassTitle(u.classType);
+                    if(u.passSeat) displayClass += `<br><span style="font-size:0.75rem; color:#2563eb;">(${u.passSeat} 지정)</span>`;
+
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
-                        <td>${u.id}</td><td>${u.name}</td><td>${u.phone}</td>
-                        <td>${used} / ${total}시간 ${isExpired ? '<br><b style="color:#ef4444; font-size:0.75rem;">[만료됨]</b>' : ''}</td>
-                        <td><span class="badge-status ${u.approved ? 'approved' : 'pending'}">${u.approved ? '승인완료' : '대기중'}</span></td>
+                        <td style="font-size:0.8rem; color:#64748b;">${regDateStr}</td>
+                        <td><strong>${u.id}</strong></td>
+                        <td>${u.name}</td>
+                        <td>${u.phone}</td>
+                        <td><span style="font-size:0.82rem; font-weight:bold; color:#1e293b;">${displayClass}</span></td>
                         <td>
-                            <select onchange="updateUserClassAdmin('${u.id}', this.value)">
-                                <option value="미지정" ${u.classType === '미지정' ? 'selected':''}>미지정</option>
-                                <option value="BASIC_1" ${u.classType === 'BASIC_1' ? 'selected':''}>BASIC (1회/5시간)</option>
-                                <option value="BASIC_4" ${u.classType === 'BASIC_4' ? 'selected':''}>BASIC (4회/20시간)</option>
-                                <option value="BASIC_8" ${u.classType === 'BASIC_8' ? 'selected':''}>BASIC (8회/40시간)</option>
-                                <option value="BASIC_16" ${u.classType === 'BASIC_16' ? 'selected':''}>BASIC (16회/80시간)</option>
-                                <option value="FREE_PASS" ${u.classType === 'FREE_PASS' ? 'selected':''}>자유이용권</option>
-                                <option value="CREATOR" ${u.classType === 'CREATOR' ? 'selected':''}>CREATOR (8회/40시간)</option>
-                            </select>
-                            ${u.classType === 'FREE_PASS' ? `
-                                <select style="margin-top:4px;" onchange="updatePassSeatAdmin('${u.id}', this.value)">
-                                    <option value="M01" ${u.passSeat === 'M01' ? 'selected':''}>M01 전용</option>
-                                    <option value="M03" ${u.passSeat === 'M03' ? 'selected':''}>M03 전용</option>
-                                </select>
-                            ` : ''}
+                            <b>${usedCount}회 / ${totalCount}회</b><br>
+                            <span style="font-size:0.75rem; color:#64748b;">(${used}h / ${total}h)</span>
+                            ${isExpired ? '<br><b style="color:#ef4444; font-size:0.75rem;">[만료됨]</b>' : ''}
                         </td>
+                        <td><span class="badge-status ${u.approved ? 'approved' : 'pending'}">${u.approved ? '승인완료' : '승인대기'}</span></td>
                         <td>
                             ${!u.approved ? `<button onclick="approveUser('${u.id}')" class="nav-btn btn-success">클래스 승인</button>` : ''}
-                            ${isExpired ? `<button onclick="reApproveUser('${u.id}')" class="nav-btn btn-primary" style="margin-top:2px;">시간 재승인</button>` : ''}
-                            ${u.approved && !isExpired ? '<span style="color:#16a34a; font-weight:bold;">정상 이용중</span>' : ''}
+                            ${isExpired || u.approved ? `<button onclick="reApproveUser('${u.id}')" class="nav-btn btn-primary" style="margin-top:2px;">시간 재승인</button>` : ''}
                         </td>
                     `;
                     userList.appendChild(tr);
@@ -410,29 +426,12 @@
         }
 
         async function reApproveUser(userId) {
-            if(!confirm(`${userId} 회원의 사용시간을 초기화하여 재승인하시겠습니까?`)) return;
-            await db.collection('users').doc(userId).update({ usedHours: 0 });
-            alert(`${userId} 회원의 시간이 재승인되었습니다.`);
-        }
-
-        async function updateUserClassAdmin(userId, classVal) {
-            let total = 0;
-            if (classVal === 'BASIC_1') total = 5;
-            else if (classVal === 'BASIC_4') total = 20;
-            else if (classVal === 'BASIC_8' || classVal === 'CREATOR') total = 40;
-            else if (classVal === 'BASIC_16') total = 80;
-            else if (classVal === 'FREE_PASS') total = 720;
-
-            const updateData = { classType: classVal, totalHours: total };
-            if (classVal === 'FREE_PASS') updateData.passSeat = 'M01';
-
-            await db.collection('users').doc(userId).update(updateData);
-            alert('회원 클래스 설정이 수정되었습니다.');
-        }
-
-        async function updatePassSeatAdmin(userId, seatVal) {
-            await db.collection('users').doc(userId).update({ passSeat: seatVal });
-            alert(`자유이용권 지정좌석이 ${seatVal}로 수정되었습니다.`);
+            if(!confirm(`${userId} 회원의 사용시간을 초기화하시겠습니까?\n재승인 시 회원이 마이페이지에서 새로운 클래스를 다시 신청할 수 있게 됩니다.`)) return;
+            await db.collection('users').doc(userId).update({ 
+                usedHours: 0,
+                approved: false
+            });
+            alert(`${userId} 회원의 시간이 초기화되었습니다. 회원이 마이페이지에서 새 클래스를 신청하도록 안내해주세요.`);
         }
 
         document.getElementById('admin-prev-btn').onclick = () => { adminMonth--; if(adminMonth<0){adminMonth=11; adminYear--;} renderAdminCalendar(); };

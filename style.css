@@ -79,7 +79,7 @@ body {
 .btn-secondary { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 .btn-danger { background: #ef4444; color: #fff; }
 .btn-success { background: #16a34a; color: #fff; }
-.btn-warning-renew { background: #dc2626; color: #fff; border-color: #b91c1c; } /* 시간 만료 연장신청 버튼 */
+.btn-disabled { background: #94a3b8; color: #fff; cursor: not-allowed; border-color: #94a3b8; }
 
 .card-section {
     background: #ffffff;
@@ -159,7 +159,7 @@ input[type="text"], input[type="password"], input[type="tel"], input[type="email
     position: relative;
 }
 
-/* 오늘 날짜 크로스 브라우저 호환 스타일 */
+/* 오늘 날짜 표시 (모든 브라우저 완전 호환) */
 .calendar-day-cell.is-today {
     border: 2px solid #f59e0b !important;
     background-color: #fffbeb !important;
