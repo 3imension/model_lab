@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 관리자 페이지</title>
-    <!-- CSS 캐시 강제 갱신을 위해 ?v=2.0 추가 -->
-    <link rel="stylesheet" href="style.css?v=2.0">
+    <link rel="stylesheet" href="style.css?v=2.4">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -325,6 +324,9 @@
                         displayIdHTML = `<strong style="color:#ef4444;">${u.id}(탈퇴)</strong>`;
                         statusBadgeHTML = `<span style="background:#fecdd3; color:#991b1b; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold;">탈퇴 회원</span>`;
                         actionBtnHTML = `<span style="color:#94a3b8; font-size:0.8rem;">처리 불가</span>`;
+                    } else if (u.isCanceled) {
+                        statusBadgeHTML = `<span style="background:#fed7aa; color:#c2410c; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold;">취소 상태</span>`;
+                        actionBtnHTML = `<button onclick="reApproveUser('${u.id}')" class="nav-btn btn-primary" style="margin-top:2px;">시간 재승인</button>`;
                     } else {
                         actionBtnHTML = `
                             ${!u.approved ? `<button onclick="approveUser('${u.id}')" class="nav-btn btn-success">클래스 승인</button>` : ''}
@@ -457,17 +459,19 @@
         }
 
         async function approveUser(userId) {
-            await db.collection('users').doc(userId).update({ approved: true });
+            await db.collection('users').doc(userId).update({ approved: true, isCanceled: false });
             alert(`${userId} 회원의 클래스 신청이 승인되었습니다.`);
         }
 
+        // 🛑 재승인 시 취소 상태(isCanceled: false)까지 완벽 초기화
         async function reApproveUser(userId) {
-            if(!confirm(`${userId} 회원의 사용시간을 초기화하시겠습니까?\n재승인 시 회원이 마이페이지에서 새로운 클래스를 다시 신청할 수 있게 됩니다.`)) return;
+            if(!confirm(`${userId} 회원의 상태와 이용 시간을 초기화하시겠습니까?\n재승인 시 회원이 마이페이지에서 새로운 클래스를 다시 선택 및 신청할 수 있게 됩니다.`)) return;
             await db.collection('users').doc(userId).update({ 
                 usedHours: 0,
-                approved: false
+                approved: false,
+                isCanceled: false
             });
-            alert(`${userId} 회원의 시간이 초기화되었습니다. 회원이 마이페이지에서 새 클래스를 신청하도록 안내해주세요.`);
+            alert(`${userId} 회원의 상태가 재승인 가능하게 초기화되었습니다.`);
         }
 
         document.getElementById('admin-prev-btn').onclick = () => { adminMonth--; if(adminMonth<0){adminMonth=11; adminYear--;} renderAdminCalendar(); };
