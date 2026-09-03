@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 내 정보 및 좌석 예약</title>
-    <link rel="stylesheet" href="style.css?v=3.9">
+    <link rel="stylesheet" href="style.css?v=4.0">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -195,9 +195,17 @@
             return s.substring(0, 1) + '***';
         }
 
-        // 날짜 객체에서 YYYY-MM-DD 스트링 반환
         function formatDateStr(dateObj) {
             return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+        }
+
+        function formatDateTimeStr(dateObj) {
+            const y = dateObj.getFullYear();
+            const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const d = String(dateObj.getDate()).padStart(2, '0');
+            const hh = String(dateObj.getHours()).padStart(2, '0');
+            const mm = String(dateObj.getMinutes()).padStart(2, '0');
+            return `${y}-${m}-${d} ${hh}:${mm}`;
         }
 
         async function fetchPassSeats() {
@@ -210,16 +218,15 @@
             passReservedSeats = snapshot.docs.map(doc => {
                 const u = doc.data();
                 
-                // 🛑 날짜 미지정 시 가입일 또는 오늘 기준으로 1개월 자동 산출
                 let start = u.passStartDate || '';
                 let end = u.passEndDate || '';
 
                 if (!start || !end) {
                     const regDate = u.createdAt ? (u.createdAt.toDate ? u.createdAt.toDate() : new Date(u.createdAt)) : new Date();
-                    start = formatDateStr(regDate);
+                    start = formatDateTimeStr(regDate);
                     const endDateObj = new Date(regDate);
                     endDateObj.setDate(endDateObj.getDate() + 30);
-                    end = formatDateStr(endDateObj);
+                    end = formatDateTimeStr(endDateObj);
                 }
 
                 return {
@@ -326,16 +333,16 @@
                 
                 const isFreePass = (currentUserData.classType === 'FREE_PASS');
 
-                // 🛑 날짜 미지정 보완 처리
+                // ⏰ 유효기간 보완 계산
                 let myPassStart = currentUserData.passStartDate || '';
                 let myPassEnd = currentUserData.passEndDate || '';
 
                 if (isFreePass && (!myPassStart || !myPassEnd)) {
                     const regDate = currentUserData.createdAt ? (currentUserData.createdAt.toDate ? currentUserData.createdAt.toDate() : new Date(currentUserData.createdAt)) : new Date();
-                    myPassStart = formatDateStr(regDate);
+                    myPassStart = formatDateTimeStr(regDate);
                     const endDateObj = new Date(regDate);
                     endDateObj.setDate(endDateObj.getDate() + 30);
-                    myPassEnd = formatDateStr(endDateObj);
+                    myPassEnd = formatDateTimeStr(endDateObj);
                     currentUserData.passStartDate = myPassStart;
                     currentUserData.passEndDate = myPassEnd;
                 }
@@ -359,7 +366,6 @@
                     historyElem.textContent = '신청 이력이 없습니다.';
                 }
 
-                // 🛑 안내 문구 동적 세팅 (1개월 날짜 명확히 출력)
                 const passNoticeBox = document.getElementById('pass-creator-notice');
 
                 if (isFreePass && currentUserData.approved) {
@@ -411,8 +417,8 @@
             for(let i = 0; i < first; i++) cal.appendChild(Object.assign(document.createElement('div'), {className:'calendar-day-cell empty'}));
 
             const isFreePassUser = (currentUserData.classType === 'FREE_PASS' && currentUserData.approved);
-            const myPassStart = currentUserData.passStartDate || '';
-            const myPassEnd = currentUserData.passEndDate || '';
+            const myPassStartDay = (currentUserData.passStartDate || '').substring(0, 10);
+            const myPassEndDay = (currentUserData.passEndDate || '').substring(0, 10);
 
             for(let d = 1; d <= last; d++) {
                 const dateStr = `${year}-${String(month + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
@@ -425,8 +431,8 @@
                 const myBookingsOnDay = dayBookings.filter(b => String(b.userId).trim() === myId);
                 const myCount = myBookingsOnDay.length;
 
-                // 🛑 1개월 유효기간 검증 (만료일 지나면 점유 해제)
-                const isMyPassDay = isFreePassUser && (myPassStart <= dateStr && dateStr <= myPassEnd);
+                // 🛑 해당 날짜가 1개월 유효기간 내에 들어오는지 정확히 체크
+                const isMyPassDay = isFreePassUser && (myPassStartDay <= dateStr && dateStr <= myPassEndDay);
 
                 const cell = document.createElement('div');
                 cell.className = 'calendar-day-cell';
@@ -495,8 +501,8 @@
                 ["M01", "M02", "M03", "M04"].forEach(seat => {
                     const booked = slotBookings.find(b => b.seat === seat);
                     
-                    // 🛑 1개월 범위 조건에 해당하는 자유이용권 사용자만 점유 처리
-                    const passOwner = passReservedSeats.find(p => p.seat === seat && (!p.startDate || p.startDate <= dateStr) && (!p.endDate || dateStr <= p.endDate));
+                    // 🛑 날짜 단위로 자유이용권 1개월 범위 조건 정확 체크
+                    const passOwner = passReservedSeats.find(p => p.seat === seat && (!p.startDate || p.startDate.substring(0, 10) <= dateStr) && (!p.endDate || dateStr <= p.endDate.substring(0, 10)));
 
                     if (booked) {
                         const isMine = (String(booked.userId).trim() === myId);

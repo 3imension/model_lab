@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 관리자 페이지</title>
-    <link rel="stylesheet" href="style.css?v=3.9">
+    <link rel="stylesheet" href="style.css?v=4.0">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -146,6 +146,15 @@
 
         function formatDateStr(dateObj) {
             return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+        }
+
+        function formatDateTimeStr(dateObj) {
+            const y = dateObj.getFullYear();
+            const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const d = String(dateObj.getDate()).padStart(2, '0');
+            const hh = String(dateObj.getHours()).padStart(2, '0');
+            const mm = String(dateObj.getMinutes()).padStart(2, '0');
+            return `${y}-${m}-${d} ${hh}:${mm}`;
         }
 
         function loadNoticeImageAdmin() {
@@ -426,28 +435,18 @@
                     cachedUsersMap[u.id] = u;
                     rawUsersList.push(u);
 
-                    // 🛑 자유이용권 유효기간 보완 계산
+                    // 🛑 자유이용권 시/분/초 단위 만료시간 검증
                     if (u.classType === 'FREE_PASS' && u.approved && !u.isDeleted) {
-                        let start = u.passStartDate || '';
-                        let end = u.passEndDate || '';
+                        const start = u.passStartDate || '';
+                        const end = u.passEndDate || '';
 
-                        if (!start || !end) {
-                            const regDate = u.createdAt ? (u.createdAt.toDate ? u.createdAt.toDate() : new Date(u.createdAt)) : new Date();
-                            start = formatDateStr(regDate);
-                            const endDateObj = new Date(regDate);
-                            endDateObj.setDate(endDateObj.getDate() + 30);
-                            end = formatDateStr(endDateObj);
-                        }
-
-                        if (todayStr <= end) {
-                            passReservedUsers.push({
-                                id: u.id,
-                                name: u.name,
-                                seat: u.passSeat || 'M01',
-                                startDate: start,
-                                endDate: end
-                            });
-                        }
+                        passReservedUsers.push({
+                            id: u.id,
+                            name: u.name,
+                            seat: u.passSeat || 'M01',
+                            startDate: start,
+                            endDate: end
+                        });
                     }
                 });
 
@@ -485,8 +484,12 @@
 
                 const dayBookings = cachedBookings.filter(b => b.date === dateStr);
                 
-                // 🛑 해당 날짜가 1개월 유효기간 내에 들어올 때만 점유 건수로 가산
-                const activePassesOnDay = passReservedUsers.filter(p => (!p.startDate || p.startDate <= dateStr) && (!p.endDate || dateStr <= p.endDate));
+                // 🛑 날짜 범위(시작일 날짜 ~ 만료일 날짜) 내에 해당하는 경우에만 점유 가산
+                const activePassesOnDay = passReservedUsers.filter(p => {
+                    const startDay = p.startDate.substring(0, 10);
+                    const endDay = p.endDate.substring(0, 10);
+                    return startDay <= dateStr && dateStr <= endDay;
+                });
                 const passOccupiedCount = activePassesOnDay.length * slots.length;
 
                 const count = dayBookings.length + passOccupiedCount;
@@ -522,7 +525,11 @@
             title.textContent = `📌 ${dateStr} 좌석별 예약 현황`;
             container.innerHTML = '';
 
-            const activePassesOnDay = passReservedUsers.filter(p => (!p.startDate || p.startDate <= dateStr) && (!p.endDate || dateStr <= p.endDate));
+            const activePassesOnDay = passReservedUsers.filter(p => {
+                const startDay = p.startDate.substring(0, 10);
+                const endDay = p.endDate.substring(0, 10);
+                return startDay <= dateStr && dateStr <= endDay;
+            });
 
             slots.forEach(slot => {
                 const slotBookings = cachedBookings.filter(b => b.date === dateStr && b.time === slot);
@@ -575,10 +582,27 @@
         }
 
         async function approveUser(userId) {
-            await db.collection('users').doc(userId).update({ approved: true });
+            const now = new Date();
+            const endDate = new Date();
+            endDate.setDate(now.getDate() + 30);
+
+            const startStr = formatDateTimeStr(now);
+            const endStr = formatDateTimeStr(endDate);
+
+            const userDoc = await db.collection('users').doc(userId).get();
+            const uData = userDoc.data() || {};
+
+            const updateData = { approved: true };
+            if (uData.classType === 'FREE_PASS') {
+                updateData.passStartDate = startStr;
+                updateData.passEndDate = endStr;
+            }
+
+            await db.collection('users').doc(userId).update(updateData);
             alert(`${userId} 회원의 클래스 신청이 승인되었습니다.`);
         }
 
+        // 🛑 PC 표준시계(new Date) 연동: 관리자 승인 시각부터 정확히 한 달 후 생성
         async function adminChangeUserClass(userId, classVal) {
             let total = 0;
             if (classVal === 'BASIC_1') total = 5;
@@ -595,12 +619,13 @@
                 history.push(classVal);
             }
 
+            // ⏰ PC 현재 시각 연동 (승인 시각 ~ 30일 후 동일 시각)
             const startDateObj = new Date();
             const endDateObj = new Date();
             endDateObj.setDate(startDateObj.getDate() + 30);
 
-            const startDateStr = formatDateStr(startDateObj);
-            const endDateStr = formatDateStr(endDateObj);
+            const startDateStr = formatDateTimeStr(startDateObj);
+            const endDateStr = formatDateTimeStr(endDateObj);
 
             const updateData = {
                 classType: classVal,
@@ -618,7 +643,7 @@
             }
 
             await db.collection('users').doc(userId).update(updateData);
-            alert(`${userId} 회원의 클래스가 [${getClassTitle(classVal)}] (으)로 지정되었습니다.`);
+            alert(`${userId} 회원의 클래스가 [${getClassTitle(classVal)}] (으)로 지정 승인되었습니다.\n자유이용권 유효기간: ${startDateStr} ~ ${endDateStr}`);
         }
 
         async function adminChangePassSeat(userId, passSeatVal) {
@@ -628,11 +653,29 @@
 
         async function reApproveUser(userId) {
             if(!confirm(`${userId} 회원의 사용시간을 초기화하고 재승인하시겠습니까?`)) return;
-            await db.collection('users').doc(userId).update({ 
+
+            const startDateObj = new Date();
+            const endDateObj = new Date();
+            endDateObj.setDate(startDateObj.getDate() + 30);
+
+            const startDateStr = formatDateTimeStr(startDateObj);
+            const endDateStr = formatDateTimeStr(endDateObj);
+
+            const userDoc = await db.collection('users').doc(userId).get();
+            const uData = userDoc.data() || {};
+
+            const updateData = {
                 usedHours: 0,
                 isCanceled: false,
                 approved: true
-            });
+            };
+
+            if (uData.classType === 'FREE_PASS') {
+                updateData.passStartDate = startDateStr;
+                updateData.passEndDate = endDateStr;
+            }
+
+            await db.collection('users').doc(userId).update(updateData);
             alert(`${userId} 회원의 시간이 초기화 및 재승인되었습니다.`);
         }
 
