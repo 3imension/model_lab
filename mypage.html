@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 내 정보 및 좌석 예약</title>
-    <link rel="stylesheet" href="style.css?v=2.2">
+    <link rel="stylesheet" href="style.css?v=2.3">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -22,7 +22,7 @@
         </header>
 
         <main class="card-section">
-            <!-- 💙 1. 회원 정보 (개인 인적사항만 깔끔하게 기본 배치) -->
+            <!-- 💙 1. 회원 정보 (인적사항만 작성) -->
             <div style="background: #f8fafc; border: 2px solid #3b82f6; padding: 20px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.05);">
                 <h2 style="font-size: 1.2rem; color: #1d4ed8; margin-bottom: 15px; display:flex; align-items:center; gap:8px;">
                     👤 1. 회원 기본 정보
@@ -39,23 +39,18 @@
                 </table>
             </div>
 
-            <!-- 🧡 2. 이용 클래스 신청 / 변경 (클래스 이용현황 통합 및 상단 빅 타이틀 배치) -->
+            <!-- 🧡 2. 이용 클래스 신청 / 변경 (아이콘 삭제, 라벨 변경, 중복 박스 제거) -->
             <div style="background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); border: 2px solid #f97316; padding: 22px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 4px 12px rgba(249, 115, 22, 0.08);">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
-                    <h2 style="font-size: 1.2rem; color: #c2410c; margin:0; display:flex; align-items:center; gap:8px;">
-                        📢 2. 이용 클래스 신청 / 변경
+                    <h2 style="font-size: 1.2rem; color: #c2410c; margin:0;">
+                        2. 이용 클래스 신청 / 변경
                     </h2>
-                    
-                    <!-- 🎯 현재 이용 중인 클래스 상단 강조 현황판 -->
-                    <div style="font-size: 1rem; font-weight: 800; color: #ea580c; background: #ffffff; padding: 8px 16px; border-radius: 8px; border: 2px solid #f97316; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
-                        현재 이용 중: <span id="current-active-class-text" style="color:#c2410c;">-</span>
-                    </div>
                 </div>
 
-                <!-- 1번에서 옮겨온 통합 클래스 사용 현황 표 -->
+                <!-- 통합 클래스 사용 현황 표 ("이용 클래스" -> "현재 이용중인 클래스" 변경) -->
                 <table class="admin-table" style="margin-bottom: 18px; background: #ffffff; border-radius:8px; overflow:hidden;">
                     <tr>
-                        <th style="background:#fff7ed; color:#9a3412;">이용 클래스</th><td id="my-class" style="font-weight:bold; color:#ea580c;">-</td>
+                        <th style="background:#fff7ed; color:#9a3412;">현재 이용중인 클래스</th><td id="my-class" style="font-weight:bold; color:#ea580c;">-</td>
                         <th style="background:#fff7ed; color:#9a3412;">승인 상태</th><td id="my-status" style="font-weight:bold;">-</td>
                     </tr>
                     <tr>
@@ -92,7 +87,7 @@
                 </div>
             </div>
 
-            <!-- 💜 3. 좌석 예약 통합 캘린더 (보라색 테마 분리) -->
+            <!-- 💜 3. 좌석 예약 통합 캘린더 -->
             <div style="background: #f5f3ff; border: 2px solid #8b5cf6; padding: 22px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 4px 12px rgba(139, 92, 246, 0.06);">
                 <h2 style="font-size: 1.2rem; color: #6d28d9; margin-bottom: 15px; display:flex; align-items:center; gap:8px;">
                     📅 3. 좌석 예약 (달력에서 날짜 클릭 후 하단 좌석 직접 선택)
@@ -120,7 +115,7 @@
                 </div>
             </div>
 
-            <!-- 💚 4. 내 좌석 예약 내역 (에메랄드 민트 테마 분리) -->
+            <!-- 💚 4. 내 좌석 예약 내역 (왼쪽에 "신청 클래스 이력" 열 추가) -->
             <div style="background: #ecfdf5; border: 2px solid #10b981; padding: 22px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.06);">
                 <h2 style="font-size: 1.2rem; color: #047857; margin-bottom: 6px; display:flex; align-items:center; gap:8px;">
                     📝 4. 내 좌석 예약 내역 목록
@@ -128,9 +123,17 @@
                 <p style="font-size:0.8rem; color:#059669; margin-bottom:12px;">* 예약 변경 및 취소는 <strong>예약일 최소 하루 전(1일 전)까지만</strong> 가능합니다.</p>
                 
                 <table class="admin-table" style="background:#ffffff; border-radius:8px; overflow:hidden;">
-                    <thead><tr style="background:#d1fae5;"><th style="color:#065f46;">예약 날짜</th><th style="color:#065f46;">시간대</th><th style="color:#065f46;">좌석</th><th style="color:#065f46;">상태 / 취소 / 변경</th></tr></thead>
+                    <thead>
+                        <tr style="background:#d1fae5;">
+                            <th style="color:#065f46; width:22%;">신청 클래스 이력</th>
+                            <th style="color:#065f46;">예약 날짜</th>
+                            <th style="color:#065f46;">시간대</th>
+                            <th style="color:#065f46;">좌석</th>
+                            <th style="color:#065f46;">상태 / 취소 / 변경</th>
+                        </tr>
+                    </thead>
                     <tbody id="my-booking-list">
-                        <tr><td colspan="4">예약 내역을 불러오는 중...</td></tr>
+                        <tr><td colspan="5">예약 내역을 불러오는 중...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -154,6 +157,7 @@
         let selDate = '', selTime = '', selSeat = '';
         let passReservedSeats = [];
         let monthBookingsCache = [];
+        let currentUserData = {};
 
         function togglePassSeatSelect() {
             const classVal = document.getElementById('user-class-select').value;
@@ -173,7 +177,24 @@
             return map[code] || code || '미지정';
         }
 
-        // 🔒 타 회원 이름/아이디 마스킹 (익명) 처리 함수
+        function getClassBadgeHTML(code) {
+            const title = getClassTitle(code);
+            const classKey = code || 'BASIC_1';
+            return `<span class="class-badge ${classKey}">${title}</span>`;
+        }
+
+        function getClassColor(code) {
+            const map = {
+                'BASIC_1': '#8b5cf6',
+                'BASIC_4': '#2563eb',
+                'BASIC_8': '#ea580c',
+                'BASIC_16': '#db2777',
+                'FREE_PASS': '#16a34a',
+                'CREATOR': '#0d9488'
+            };
+            return map[code] || '#8b5cf6';
+        }
+
         function maskString(str) {
             if (!str) return '***';
             const s = String(str).trim();
@@ -200,40 +221,48 @@
 
                 const myId = String(session.id).trim();
                 const userDoc = await db.collection('users').doc(myId).get();
-                const user = userDoc.exists ? userDoc.data() : session;
+                currentUserData = userDoc.exists ? userDoc.data() : session;
 
-                document.getElementById('my-name').textContent = user.name || '-';
-                document.getElementById('my-id').textContent = user.id || '-';
-                document.getElementById('my-phone').textContent = user.phone || '-';
-                document.getElementById('my-email').textContent = user.email || '-';
+                document.getElementById('my-name').textContent = currentUserData.name || '-';
+                document.getElementById('my-id').textContent = currentUserData.id || '-';
+                document.getElementById('my-phone').textContent = currentUserData.phone || '-';
+                document.getElementById('my-email').textContent = currentUserData.email || '-';
                 
-                let classText = getClassTitle(user.classType);
-                if(user.passSeat) classText += ` (${user.passSeat} 전용)`;
+                let classText = getClassTitle(currentUserData.classType);
+                if(currentUserData.passSeat) classText += ` (${currentUserData.passSeat} 전용)`;
                 document.getElementById('my-class').textContent = classText;
-                document.getElementById('current-active-class-text').textContent = classText;
                 
-                document.getElementById('my-status').textContent = user.approved ? '승인 완료' : '승인 대기중';
+                document.getElementById('my-status').textContent = currentUserData.approved ? '승인 완료' : '승인 대기중';
                 
-                const total = Number(user.totalHours || 0);
-                const used = Number(user.usedHours || 0);
+                const total = Number(currentUserData.totalHours || 0);
+                const used = Number(currentUserData.usedHours || 0);
                 const remain = total - used;
 
                 document.getElementById('my-total').textContent = `${total} 시간`;
                 document.getElementById('my-remain').textContent = `${used} 시간 사용 / ${remain} 시간 남음`;
 
                 const historyElem = document.getElementById('my-class-history');
-                if (user.classHistory && Array.isArray(user.classHistory) && user.classHistory.length > 0) {
-                    historyElem.textContent = user.classHistory.map(c => getClassTitle(c)).join(' ➔ ');
+                if (currentUserData.classHistory && Array.isArray(currentUserData.classHistory) && currentUserData.classHistory.length > 0) {
+                    historyElem.textContent = currentUserData.classHistory.map(c => getClassTitle(c)).join(' ➔ ');
                 } else {
                     historyElem.textContent = '신청 이력이 없습니다.';
                 }
 
-                // 🛑 [이용시간만료] 경고 제어
+                // 🛑 클래스 버튼 상태 제어 (이용중 / 이용시간만료)
                 const submitBtn = document.getElementById('class-submit-btn');
                 const classSelect = document.getElementById('user-class-select');
                 const noticeText = document.getElementById('class-notice-text');
 
-                if (user.approved && total > 0 && total <= used) {
+                if (currentUserData.approved && total > 0 && used < total) {
+                    // 현재 정상 이용 중
+                    submitBtn.disabled = true;
+                    submitBtn.className = "nav-btn btn-success";
+                    submitBtn.textContent = "클래스 이용중";
+                    classSelect.disabled = true;
+                    noticeText.textContent = "✅ 현재 클래스 이용이 정상 승인되어 사용 중입니다. 만료 후 재승인을 통해 변경 가능합니다.";
+                    noticeText.style.color = "#16a34a";
+                } else if (currentUserData.approved && total > 0 && total <= used) {
+                    // 이용시간 만료
                     submitBtn.disabled = true;
                     submitBtn.className = "nav-btn btn-disabled";
                     submitBtn.style.background = "#d97706";
@@ -242,6 +271,7 @@
                     noticeText.textContent = "⚠️ 이용 제공 시간이 모두 만료되어 더 이상 예약이 불가능합니다. 관리자의 재승인을 받으세요.";
                     noticeText.style.color = "#dc2626";
                 } else {
+                    // 미승인 또는 대기중 (신청 가능)
                     submitBtn.disabled = false;
                     submitBtn.className = "nav-btn btn-primary";
                     submitBtn.style.background = "";
@@ -249,7 +279,7 @@
                     classSelect.disabled = false;
                 }
 
-                // 4. 내 예약 내역 로드
+                // 4. 내 좌석 예약 내역 로드
                 const snapshot = await db.collection('bookings').where('userId', '==', myId).get();
                 const list = document.getElementById('my-booking-list');
                 list.innerHTML = '';
@@ -257,7 +287,7 @@
                 const myBookings = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
 
                 if (myBookings.length === 0) {
-                    list.innerHTML = '<tr><td colspan="4">예약 내역이 없습니다.</td></tr>';
+                    list.innerHTML = '<tr><td colspan="5">예약 내역이 없습니다.</td></tr>';
                 } else {
                     myBookings.sort((a, b) => a.date.localeCompare(b.date));
                     const currentHour = now.getHours();
@@ -297,7 +327,12 @@
                             statusBtnHTML = `<span style="background:#fef3c7; color:#b45309; padding:4px 8px; border-radius:4px; font-size:0.8rem; font-weight:bold;">변경/취소 불가</span>`;
                         }
 
+                        // 예약 당시 클래스 정보 또는 현재 클래스 표기
+                        const bookingClassCode = b.classType || currentUserData.classType || 'BASIC_1';
+                        const classBadgeHTML = getClassBadgeHTML(bookingClassCode);
+
                         tr.innerHTML = `
+                            <td>${classBadgeHTML}</td>
                             <td>${b.date}</td>
                             <td>${b.time}</td>
                             <td><strong style="color:#2563eb;">${b.seat}</strong></td>
@@ -348,20 +383,25 @@
                 
                 const dayBookings = monthBookingsCache.filter(b => b.date === dateStr);
                 const count = dayBookings.length;
-                const myCount = dayBookings.filter(b => String(b.userId).trim() === myId).length;
+                
+                const myBookingsOnDay = dayBookings.filter(b => String(b.userId).trim() === myId);
+                const myCount = myBookingsOnDay.length;
 
                 const cell = document.createElement('div');
                 cell.className = 'calendar-day-cell';
                 if (selDate === dateStr) cell.classList.add('selected');
                 if (dateStr === todayStr) cell.classList.add('is-today');
 
-                if (myCount > 0) {
-                    cell.classList.add('my-reserved-day');
-                }
-
                 let badgeHTML = '';
                 if (myCount > 0) {
-                    badgeHTML = `<span class="day-status-badge my-badge">내 예약 ${myCount}건</span>`;
+                    // 🎨 클래스별 색상 다르게 표기
+                    const firstMyClass = myBookingsOnDay[0].classType || currentUserData.classType || 'BASIC_1';
+                    const classBgColor = getClassColor(firstMyClass);
+
+                    cell.style.borderColor = classBgColor;
+                    cell.style.backgroundColor = `${classBgColor}15`; // 투명도 부여 배경
+
+                    badgeHTML = `<span class="day-status-badge" style="background:${classBgColor}; color:#ffffff; font-weight:bold;">내 예약 ${myCount}건</span>`;
                 } else if (count >= totalCap) {
                     badgeHTML = `<span class="day-status-badge full">매진</span>`;
                 } else if (count > 0) {
@@ -392,7 +432,6 @@
             }
         }
 
-        // 🔒 좌석 현황 카드에서 타 회원 이름/아이디 익명 마스킹 처리 (***)
         function showDaySeatDetailsMyPage(dateStr, slots) {
             const title = document.getElementById('detail-title');
             const container = document.getElementById('detail-slots');
@@ -414,7 +453,6 @@
                     if (booked) {
                         const isMine = (String(booked.userId).trim() === myId);
                         
-                        // 타 회원 마스킹 처리
                         const displayName = isMine ? booked.userName : maskString(booked.userName);
                         const displayUserId = isMine ? booked.userId : maskString(booked.userId);
 
@@ -499,12 +537,14 @@
                 return;
             }
 
+            // 예약 시 클래스 코드 함께 저장
             await db.collection('bookings').add({
                 userId: myId,
                 userName: session.name || '',
                 date: selDate,
                 time: selTime,
                 seat: selSeat,
+                classType: userData.classType || 'BASIC_1',
                 hours: 5,
                 createdAt: new Date()
             });

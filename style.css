@@ -56,7 +56,7 @@ body {
     border-radius: 10px;
 }
 
-.logo-text h1 { font-size: 1.3rem; color: #0f172a; margin: 0; }
+.logo-text h1 { font-size: 1.3rem; color: #0f172a; margin:0; }
 .logo-text span { font-size: 0.8rem; color: #64748b; }
 
 .nav-buttons {
@@ -178,11 +178,6 @@ input[type="text"], input[type="password"], input[type="tel"], input[type="email
     border-radius: 3px;
 }
 
-.calendar-day-cell.my-reserved-day {
-    border: 2px solid #8b5cf6 !important;
-    background-color: #f5f3ff !important;
-}
-
 .calendar-day-cell:hover:not(.empty) { background: #eff6ff; border-color: #2563eb; }
 .calendar-day-cell.selected { background: #dbeafe; border-color: #2563eb; }
 .calendar-day-cell.empty { border: none; background: transparent; cursor: default; }
@@ -198,7 +193,6 @@ input[type="text"], input[type="password"], input[type="tel"], input[type="email
 .day-status-badge.available { background: #dbeafe; color: #1d4ed8; }
 .day-status-badge.reserved { background: #fef3c7; color: #d97706; }
 .day-status-badge.full { background: #fee2e2; color: #dc2626; }
-.day-status-badge.my-badge { background: #8b5cf6; color: #ffffff; font-weight: bold; }
 
 .admin-table {
     width: 100%;
@@ -225,27 +219,21 @@ input[type="text"], input[type="password"], input[type="tel"], input[type="email
 .badge-status.approved { background: #dcfce7; color: #15803d; }
 .badge-status.pending { background: #fef9c3; color: #a16207; }
 
-.seat-map {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    background: #f8fafc;
-    padding: 10px;
-    border-radius: 8px;
-    margin-top: 8px;
-}
-
-.seat-btn {
-    padding: 10px 0;
-    border: 1px solid #cbd5e1;
-    background: #fff;
+/* 🎨 클래스 이력별 스타일 시각화 배지 */
+.class-badge {
+    display: inline-block;
+    padding: 3px 8px;
     border-radius: 6px;
+    font-size: 0.75rem;
     font-weight: bold;
-    cursor: pointer;
+    border: 1px solid transparent;
 }
-.seat-btn.taken { background: #e2e8f0; color: #94a3b8; text-decoration: line-through; cursor: not-allowed; }
-.seat-btn.pass-reserved { background: #fecdd3; color: #991b1b; cursor: not-allowed; }
-.seat-btn.selected { background: #2563eb; color: #fff; border-color: #2563eb; }
+.class-badge.BASIC_1 { background: #f3e8ff; color: #7e22ce; border-color: #c084fc; }
+.class-badge.BASIC_4 { background: #dbeafe; color: #1e40af; border-color: #60a5fa; }
+.class-badge.BASIC_8 { background: #ffedd5; color: #c2410c; border-color: #fb923c; }
+.class-badge.BASIC_16 { background: #fce7f3; color: #be185d; border-color: #f472b6; }
+.class-badge.FREE_PASS { background: #dcfce7; color: #15803d; border-color: #4ade80; }
+.class-badge.CREATOR { background: #ccfbf1; color: #0f766e; border-color: #2dd4bf; }
 
 .clickable-seat-card:hover {
     background-color: #dbeafe !important;
