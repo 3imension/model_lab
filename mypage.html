@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 내 정보 및 좌석 예약</title>
-    <!-- CSS 캐시 강제 갱신 적용 -->
-    <link rel="stylesheet" href="style.css?v=2.0">
+    <link rel="stylesheet" href="style.css?v=2.1">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -23,6 +22,7 @@
         </header>
 
         <main class="card-section">
+            <!-- 1. 회원 정보 및 클래스 현황 -->
             <h2 style="margin-bottom: 15px;">1. 회원 정보 및 클래스 현황</h2>
             <table class="admin-table" style="margin-bottom: 20px;">
                 <tr><th>이름</th><td id="my-name">-</td><th>아이디</th><td id="my-id">-</td></tr>
@@ -31,12 +31,15 @@
                 <tr><th>총 제공 시간</th><td id="my-total">-</td><th>사용 / 잔여 시간</th><td id="my-remain">-</td></tr>
             </table>
 
+            <!-- 2. 이용 클래스 신청 / 변경 (현재 이용 클래스 표시 & 만료 처리) -->
             <div style="background: linear-gradient(135deg, #fefce8 0%, #fff7ed 100%); border: 2px solid #f97316; padding: 20px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 4px 12px rgba(249, 115, 22, 0.08);">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
                     <h3 style="font-size: 1.1rem; color: #c2410c; margin:0; display:flex; align-items:center; gap:6px;">
                         📢 <strong>이용 클래스 신청 / 변경</strong>
                     </h3>
-                    <div id="class-status-badge"></div>
+                    <div style="font-size:0.9rem; font-weight:bold; color:#ea580c; background:#ffedd5; padding:4px 10px; border-radius:6px; border:1px solid #fed7aa;">
+                        현재 이용 중: <span id="current-active-class-text">-</span>
+                    </div>
                 </div>
 
                 <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 15px;">
@@ -67,6 +70,7 @@
                 </div>
             </div>
 
+            <!-- 3. 좌석 예약 통합 캘린더 -->
             <div style="border-top: 2px dashed #e2e8f0; padding-top: 25px; margin-bottom: 30px;">
                 <h3 style="margin-bottom: 15px;">3. 좌석 예약 (달력에서 날짜 클릭 후 하단 좌석 직접 선택)</h3>
                 
@@ -92,10 +96,12 @@
                 </div>
             </div>
 
+            <!-- 4. 내 좌석 예약 내역 (하루 전 변경 기능 지원) -->
             <div style="border-top: 2px dashed #e2e8f0; padding-top: 25px;">
                 <h3>4. 내 좌석 예약 내역 목록</h3>
+                <p style="font-size:0.8rem; color:#64748b; margin-top:4px;">* 예약 변경 및 취소는 <strong>예약일 최소 하루 전(1일 전)까지만</strong> 가능합니다.</p>
                 <table class="admin-table" style="margin-top: 10px;">
-                    <thead><tr><th>예약 날짜</th><th>시간대</th><th>좌석</th><th>상태 / 취소</th></tr></thead>
+                    <thead><tr><th>예약 날짜</th><th>시간대</th><th>좌석</th><th>상태 / 취소 / 변경</th></tr></thead>
                     <tbody id="my-booking-list">
                         <tr><td colspan="4">예약 내역을 불러오는 중...</td></tr>
                     </tbody>
@@ -169,6 +175,7 @@
                 let classText = getClassTitle(user.classType);
                 if(user.passSeat) classText += ` (${user.passSeat} 전용)`;
                 document.getElementById('my-class').textContent = classText;
+                document.getElementById('current-active-class-text').textContent = classText;
                 
                 document.getElementById('my-status').textContent = user.approved ? '승인 완료' : '승인 대기중';
                 
@@ -186,6 +193,7 @@
                     historyElem.textContent = '신청 이력이 없습니다.';
                 }
 
+                // 🛑 예약일/시간이 경과한 후 이용시간이 만료된 경우 [이용시간만료] 버튼으로 제어
                 const submitBtn = document.getElementById('class-submit-btn');
                 const classSelect = document.getElementById('user-class-select');
                 const noticeText = document.getElementById('class-notice-text');
@@ -206,6 +214,7 @@
                     classSelect.disabled = false;
                 }
 
+                // 내 예약 목록 로드 및 1일 전 기한 계산
                 const snapshot = await db.collection('bookings').where('userId', '==', myId).get();
                 const list = document.getElementById('my-booking-list');
                 list.innerHTML = '';
@@ -218,30 +227,41 @@
                     myBookings.sort((a, b) => a.date.localeCompare(b.date));
                     const currentHour = now.getHours();
 
+                    // 내일 날짜 계산 (하루 전 유효 검증용)
+                    const tomorrowObj = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+                    const tomorrowStr = `${tomorrowObj.getFullYear()}-${String(tomorrowObj.getMonth() + 1).padStart(2, '0')}-${String(tomorrowObj.getDate()).padStart(2, '0')}`;
+
                     myBookings.forEach(b => {
                         const tr = document.createElement('tr');
                         let statusBtnHTML = '';
 
-                        if (b.date < todayStr) {
+                        const isPast = b.date < todayStr;
+                        const isToday = b.date === todayStr;
+                        const canModify = b.date >= tomorrowStr; // 예약일 1일 전 이상만 가능
+
+                        if (isPast) {
                             statusBtnHTML = `<span style="background:#cbd5e1; color:#475569; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">사용완료</span>`;
-                        } else if (b.date > todayStr) {
-                            statusBtnHTML = `<button onclick="cancelBooking('${b.docId}', ${b.hours || 5})" class="nav-btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;">예약 취소</button>`;
-                        } else {
+                        } else if (isToday) {
                             const timeStr = b.time || '';
-                            let startHour = 0, endHour = 24;
+                            let endHour = 24;
+                            if (timeStr.includes("10:00 - 14:00")) endHour = 14;
+                            else if (timeStr.includes("14:00 - 18:00")) endHour = 18;
+                            else if (timeStr.includes("18:00 - 22:00")) endHour = 22;
+                            else if (timeStr.includes("19:00 - 23:00")) endHour = 23;
 
-                            if (timeStr.includes("10:00 - 14:00")) { startHour = 10; endHour = 14; }
-                            else if (timeStr.includes("14:00 - 18:00")) { startHour = 14; endHour = 18; }
-                            else if (timeStr.includes("18:00 - 22:00")) { startHour = 18; endHour = 22; }
-                            else if (timeStr.includes("19:00 - 23:00")) { startHour = 19; endHour = 23; }
-
-                            if (currentHour >= startHour && currentHour < endHour) {
-                                statusBtnHTML = `<span style="background:#dcfce7; color:#15803d; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">사용중</span>`;
-                            } else if (currentHour >= endHour) {
+                            if (currentHour >= endHour) {
                                 statusBtnHTML = `<span style="background:#cbd5e1; color:#475569; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">사용완료</span>`;
                             } else {
-                                statusBtnHTML = `<button onclick="cancelBooking('${b.docId}', ${b.hours || 5})" class="nav-btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;">예약 취소</button>`;
+                                statusBtnHTML = `<span style="background:#dcfce7; color:#15803d; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">당일 사용중/예약</span>`;
                             }
+                        } else if (canModify) {
+                            // 예약일 하루 전 이상 남아 변경/취소가 모두 가능한 상태
+                            statusBtnHTML = `
+                                <button onclick="changeBookingModal('${b.docId}', '${b.date}', '${b.time}', '${b.seat}')" class="nav-btn btn-primary" style="padding: 4px 8px; font-size: 0.8rem; margin-right:4px;">예약 변경</button>
+                                <button onclick="cancelBooking('${b.docId}', ${b.hours || 5})" class="nav-btn btn-danger" style="padding: 4px 8px; font-size: 0.8rem;">예약 취소</button>
+                            `;
+                        } else {
+                            statusBtnHTML = `<span style="background:#fef3c7; color:#b45309; padding:4px 8px; border-radius:4px; font-size:0.8rem; font-weight:bold;">변경/취소 불가</span>`;
                         }
 
                         tr.innerHTML = `
@@ -261,6 +281,7 @@
             }
         }
 
+        // 3. 월간 통합 캘린더 렌더링
         async function renderResCal() {
             await fetchPassSeats();
             document.getElementById('res-month-title').textContent = `${year}년 ${month + 1}월`;
@@ -452,6 +473,51 @@
             await userRef.update({ usedHours: used + 5 });
 
             alert(`[예약 완료]\n일시: ${selDate} / ${selTime}\n좌석: ${selSeat}`);
+            location.reload();
+        }
+
+        // 🔄 예약 변경 대화상자 (하루 전까지만 동작)
+        async function changeBookingModal(docId, oldDate, oldTime, oldSeat) {
+            const newDate = prompt(`[예약 날짜/좌석 변경]\n기존: ${oldDate} / ${oldTime} / ${oldSeat}\n\n변경할 날짜를 입력하세요 (형식: YYYY-MM-DD):`, oldDate);
+            if (!newDate) return;
+
+            const isWeekend = (new Date(newDate).getDay() % 6 === 0);
+            const slotsText = isWeekend ? "1: 10:00 - 14:00 (주말 1부)\n2: 14:00 - 18:00 (주말 2부)\n3: 18:00 - 22:00 (주말 3부)" : "1: 19:00 - 23:00 (평일 야간)";
+            
+            const slotChoice = prompt(`시간대 번호를 선택하세요:\n${slotsText}`, "1");
+            if (!slotChoice) return;
+
+            let newTime = "";
+            if (isWeekend) {
+                if (slotChoice === "1") newTime = "10:00 - 14:00 (주말 1부)";
+                else if (slotChoice === "2") newTime = "14:00 - 18:00 (주말 2부)";
+                else if (slotChoice === "3") newTime = "18:00 - 22:00 (주말 3부)";
+            } else {
+                newTime = "19:00 - 23:00 (평일 야간)";
+            }
+
+            const newSeat = prompt("변경할 좌석 번호를 입력하세요 (M01, M02, M03, M04):", oldSeat);
+            if (!newSeat) return;
+
+            // 중복 검사
+            const dupCheck = await db.collection('bookings')
+                .where('date', '==', newDate)
+                .where('time', '==', newTime)
+                .where('seat', '==', newSeat.toUpperCase())
+                .get();
+
+            if (!dupCheck.empty && (newDate !== oldDate || newTime !== oldTime || newSeat.toUpperCase() !== oldSeat)) {
+                return alert('선택하신 시간/좌석은 이미 다른 회원이 예약 중입니다.');
+            }
+
+            // DB 업데이트
+            await db.collection('bookings').doc(docId).update({
+                date: newDate,
+                time: newTime,
+                seat: newSeat.toUpperCase()
+            });
+
+            alert('예약 날짜 및 좌석이 성공적으로 변경되었습니다.');
             location.reload();
         }
 
