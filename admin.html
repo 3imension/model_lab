@@ -39,13 +39,20 @@
                 </div>
             </div>
 
-            <!-- 2. 회원 목록 (가입일자, 클래스 사용 횟수 표기 추가) -->
+            <!-- 2. 변경된 9개 열 구조의 회원 목록 -->
             <h3 style="margin-bottom: 15px;">2. 회원 목록 및 클래스 승인 관리</h3>
             <table class="admin-table" style="margin-bottom: 30px;">
                 <thead>
                     <tr>
-                        <th>가입일자</th><th>아이디</th><th>실명</th><th>연락처</th>
-                        <th>신청 클래스</th><th>사용 횟수 / 시간</th><th>승인 상태</th><th>처리 / 시간 재승인</th>
+                        <th>가입일자</th>
+                        <th>아이디</th>
+                        <th>실명</th>
+                        <th>연락처</th>
+                        <th>신청 클래스 이력</th>
+                        <th>현재 클래스</th>
+                        <th>사용시간</th>
+                        <th>승인 상태</th>
+                        <th>처리 / 시간 재승인</th>
                     </tr>
                 </thead>
                 <tbody id="admin-user-list"></tbody>
@@ -211,6 +218,18 @@
             }
         }
 
+        function getClassTitle(code) {
+            const map = {
+                'BASIC_1': 'BASIC (1회/5시간)',
+                'BASIC_4': 'BASIC (4회/20시간)',
+                'BASIC_8': 'BASIC (8회/40시간)',
+                'BASIC_16': 'BASIC (16회/80시간)',
+                'FREE_PASS': '자유이용권',
+                'CREATOR': 'CREATOR (8회/40시간)'
+            };
+            return map[code] || code || '미지정';
+        }
+
         function applyBookingSort() {
             const sortKey = document.getElementById('sort-key-select').value;
             const sortOrder = document.getElementById('sort-order-select').value;
@@ -240,33 +259,27 @@
             list.forEach(b => {
                 const statusInfo = getBookingStatusInfo(b.date, b.time || '');
                 const userObj = cachedUsersMap[b.userId] || {};
-                let userClass = userObj.classType || '미지정';
+                let userClass = getClassTitle(userObj.classType);
                 if(userObj.passSeat) userClass += `(${userObj.passSeat})`;
+
+                // 🛑 탈퇴 회원 빨간색 표시
+                let displayUserIdHTML = b.userId;
+                if (userObj.isDeleted) {
+                    displayUserIdHTML = `<strong style="color:#ef4444;">${b.userId}(탈퇴)</strong>`;
+                }
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${b.date}</td>
                     <td>${b.time}</td>
                     <td><strong style="color:#2563eb;">${b.seat}</strong></td>
-                    <td>${b.userId}</td>
-                    <td>${b.userName}</td>
+                    <td>${displayUserIdHTML}</td>
+                    <td>${b.userName || userObj.name || '-'}</td>
                     <td><span style="font-size:0.8rem; color:#475569;">${userClass}</span></td>
                     <td>${statusInfo.html}</td>
                 `;
                 bookingListElem.appendChild(tr);
             });
-        }
-
-        function getClassTitle(code) {
-            const map = {
-                'BASIC_1': 'BASIC (1회/5시간)',
-                'BASIC_4': 'BASIC (4회/20시간)',
-                'BASIC_8': 'BASIC (8회/40시간)',
-                'BASIC_16': 'BASIC (16회/80시간)',
-                'FREE_PASS': '자유이용권',
-                'CREATOR': 'CREATOR (8회/40시간)'
-            };
-            return map[code] || code || '미지정';
         }
 
         function listenAdminData() {
@@ -286,37 +299,57 @@
                     const used = Number(u.usedHours || 0);
                     const isExpired = u.approved && (total <= used);
 
-                    // 1회당 5시간 기준 사용 횟수 계산
                     const usedCount = Math.floor(used / 5);
                     const totalCount = Math.floor(total / 5);
 
-                    // 가입 일자 변환
+                    // 가입일자 포맷
                     let regDateStr = '-';
                     if (u.createdAt) {
                         const dateObj = u.createdAt.toDate ? u.createdAt.toDate() : new Date(u.createdAt);
                         regDateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
                     }
 
-                    let displayClass = getClassTitle(u.classType);
-                    if(u.passSeat) displayClass += `<br><span style="font-size:0.75rem; color:#2563eb;">(${u.passSeat} 지정)</span>`;
+                    // 1) 신청 클래스 이력 포맷 (History)
+                    let historyHTML = '-';
+                    if (u.classHistory && Array.isArray(u.classHistory) && u.classHistory.length > 0) {
+                        historyHTML = u.classHistory.map(c => getClassTitle(c)).join(' → ');
+                    }
+
+                    // 2) 현재 클래스 포맷
+                    let currentClassHTML = getClassTitle(u.classType);
+                    if(u.passSeat) currentClassHTML += `<br><span style="font-size:0.75rem; color:#2563eb;">(${u.passSeat} 지정)</span>`;
+
+                    // 3) 🛑 아이디(탈퇴) 빨간색 표기 및 상태 버튼
+                    let displayIdHTML = `<strong>${u.id}</strong>`;
+                    let statusBadgeHTML = `<span class="badge-status ${u.approved ? 'approved' : 'pending'}">${u.approved ? '승인완료' : '승인대기'}</span>`;
+                    let actionBtnHTML = '';
+
+                    if (u.isDeleted) {
+                        displayIdHTML = `<strong style="color:#ef4444;">${u.id}(탈퇴)</strong>`;
+                        statusBadgeHTML = `<span style="background:#fecdd3; color:#991b1b; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold;">탈퇴 회원</span>`;
+                        actionBtnHTML = `<span style="color:#94a3b8; font-size:0.8rem;">처리 불가</span>`;
+                    } else {
+                        actionBtnHTML = `
+                            ${!u.approved ? `<button onclick="approveUser('${u.id}')" class="nav-btn btn-success">클래스 승인</button>` : ''}
+                            ${isExpired || u.approved ? `<button onclick="reApproveUser('${u.id}')" class="nav-btn btn-primary" style="margin-top:2px;">시간 재승인</button>` : ''}
+                        `;
+                    }
 
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td style="font-size:0.8rem; color:#64748b;">${regDateStr}</td>
-                        <td><strong>${u.id}</strong></td>
-                        <td>${u.name}</td>
-                        <td>${u.phone}</td>
-                        <td><span style="font-size:0.82rem; font-weight:bold; color:#1e293b;">${displayClass}</span></td>
+                        <td>${displayIdHTML}</td>
+                        <td>${u.name || '-'}</td>
+                        <td>${u.phone || '-'}</td>
+                        <td style="font-size:0.78rem; color:#64748b; max-width:180px; word-break:break-all;">${historyHTML}</td>
+                        <td><span style="font-size:0.82rem; font-weight:bold; color:#1e293b;">${currentClassHTML}</span></td>
                         <td>
                             <b>${usedCount}회 / ${totalCount}회</b><br>
                             <span style="font-size:0.75rem; color:#64748b;">(${used}h / ${total}h)</span>
-                            ${isExpired ? '<br><b style="color:#ef4444; font-size:0.75rem;">[만료됨]</b>' : ''}
+                            ${isExpired && !u.isDeleted ? '<br><b style="color:#ef4444; font-size:0.75rem;">[만료됨]</b>' : ''}
                         </td>
-                        <td><span class="badge-status ${u.approved ? 'approved' : 'pending'}">${u.approved ? '승인완료' : '승인대기'}</span></td>
-                        <td>
-                            ${!u.approved ? `<button onclick="approveUser('${u.id}')" class="nav-btn btn-success">클래스 승인</button>` : ''}
-                            ${isExpired || u.approved ? `<button onclick="reApproveUser('${u.id}')" class="nav-btn btn-primary" style="margin-top:2px;">시간 재승인</button>` : ''}
-                        </td>
+                        <td>${statusBadgeHTML}</td>
+                        <td>${actionBtnHTML}</td>
                     `;
                     userList.appendChild(tr);
                 });
@@ -395,11 +428,17 @@
                 ["M01", "M02", "M03", "M04"].forEach(seat => {
                     const booked = slotBookings.find(b => b.seat === seat);
                     if (booked) {
+                        const userObj = cachedUsersMap[booked.userId] || {};
+                        let displayId = booked.userId;
+                        if(userObj.isDeleted) {
+                            displayId = `<span style="color:#ef4444; font-weight:bold;">${booked.userId}(탈퇴)</span>`;
+                        }
+
                         seatCardsHTML += `
                             <div style="background:#fef3c7; border:1px solid #f59e0b; padding:8px; border-radius:6px; font-size:0.8rem; text-align:center;">
                                 <strong style="color:#b45309;">${seat}</strong><br>
                                 <span style="font-weight:bold; color:#1e293b;">${booked.userName}</span><br>
-                                <span style="color:#64748b; font-size:0.75rem;">(${booked.userId})</span>
+                                <span style="font-size:0.75rem;">(${displayId})</span>
                             </div>`;
                     } else {
                         seatCardsHTML += `
@@ -435,7 +474,7 @@
         }
 
         document.getElementById('admin-prev-btn').onclick = () => { adminMonth--; if(adminMonth<0){adminMonth=11; adminYear--;} renderAdminCalendar(); };
-        document.getElementById('admin-next-btn').onclick = () => { adminMonth++; if(adminMonth>11){adminMonth=0; adminYear++;} renderAdminCalendar(); };
+        document.getElementById('admin-next-btn').onclick = () => { adminMonth++; if(adminMonth>11){adminMonth=0; adminYear--;} renderAdminCalendar(); };
 
         document.addEventListener('DOMContentLoaded', () => {
             loadNoticeImageAdmin();

@@ -29,7 +29,6 @@
                 <tr><th>총 제공 시간</th><td id="my-total">-</td><th>사용 / 잔여 시간</th><td id="my-remain">-</td></tr>
             </table>
 
-            <!-- 클래스 신청/변경 영역 (한도 차면 버튼 비활성화) -->
             <div style="background: #f8fafc; border: 1px solid #cbd5e1; padding: 16px; border-radius: 8px; margin-bottom: 25px;">
                 <h3 style="font-size: 1rem; margin-bottom: 10px; color: #1e293b;">📋 이용 클래스 신청 / 변경</h3>
                 <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
@@ -104,7 +103,6 @@
                 document.getElementById('my-total').textContent = `${total} 시간`;
                 document.getElementById('my-remain').textContent = `${used} 시간 사용 / ${remain} 시간 남음`;
 
-                // 🛑 한도 초과 시 오버부킹 차단 및 신청 버튼 상태 변경
                 const submitBtn = document.getElementById('class-submit-btn');
                 const classSelect = document.getElementById('user-class-select');
                 const noticeText = document.getElementById('class-notice-text');
@@ -123,7 +121,6 @@
                     classSelect.disabled = false;
                 }
 
-                // 예약 내역 로드
                 const snapshot = await db.collection('bookings').where('userId', '==', myId).get();
                 const list = document.getElementById('my-booking-list');
                 list.innerHTML = '';
@@ -138,7 +135,6 @@
                 myBookings.sort((a, b) => a.date.localeCompare(b.date));
 
                 const now = new Date();
-                // 브라우저 호환 표준 로컬 YYYY-MM-DD
                 const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
                 const currentHour = now.getHours();
 
@@ -183,6 +179,7 @@
             }
         }
 
+        // 신청 클래스 이력(Array) 업데이트 및 제출 로직
         async function requestClassChange() {
             const classVal = document.getElementById('user-class-select').value;
             const passSeat = document.getElementById('pass-seat-select').value;
@@ -200,12 +197,20 @@
             else if (classVal === 'FREE_PASS') total = 720;
 
             const myId = String(session.id).trim();
+            const userDoc = await db.collection('users').doc(myId).get();
+            const currentData = userDoc.exists ? userDoc.data() : {};
+
+            // 📜 이력 배열 누적 관리
+            const history = currentData.classHistory || [];
+            history.push(classVal);
+
             await db.collection('users').doc(myId).update({
                 classType: classVal,
                 passSeat: classVal === 'FREE_PASS' ? passSeat : null,
                 totalHours: total,
                 usedHours: 0,
-                approved: false
+                approved: false,
+                classHistory: history
             });
 
             alert('클래스 신청이 완료되었습니다.\n공방장(관리자)의 승인 후 예약을 진행하실 수 있습니다.');
@@ -235,10 +240,16 @@
             }
         }
 
+        // 🛑 관리자 이력 표시용 Soft Delete 회원 탈퇴
         async function deleteAccount() {
-            if (!confirm('정말로 탈퇴하시겠습니까? 데이터가 모두 삭제됩니다.')) return;
+            if (!confirm('정말로 탈퇴하시겠습니까? 데이터가 처리되며 관리자 목록에 탈퇴 상태로 기록됩니다.')) return;
             try {
-                await db.collection('users').doc(String(session.id).trim()).delete();
+                const myId = String(session.id).trim();
+                await db.collection('users').doc(myId).update({
+                    isDeleted: true,
+                    approved: false,
+                    deletedAt: new Date()
+                });
                 localStorage.removeItem('ml_session');
                 alert('탈퇴가 완료되었습니다.');
                 window.location.href = 'index.html';
