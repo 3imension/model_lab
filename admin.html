@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 관리자 페이지</title>
-    <link rel="stylesheet" href="style.css?v=3.7">
+    <link rel="stylesheet" href="style.css?v=3.8">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -142,7 +142,7 @@
         let cachedBookings = [];
         let cachedUsersMap = {};
         let rawUsersList = [];
-        let passReservedUsers = []; // 승인된 자유이용권 회원 목록
+        let passReservedUsers = [];
 
         function loadNoticeImageAdmin() {
             if(!db) return;
@@ -295,12 +295,12 @@
             sortedUsers.sort((a, b) => {
                 const totalA = Number(a.totalHours || 0);
                 const usedA = Number(a.usedHours || 0);
-                const isExpiredA = a.approved && (totalA <= usedA);
+                const isExpiredA = a.approved && (a.classType !== 'FREE_PASS' && totalA <= usedA);
                 const isPendingA = !a.approved && !a.isDeleted;
 
                 const totalB = Number(b.totalHours || 0);
                 const usedB = Number(b.usedHours || 0);
-                const isExpiredB = b.approved && (totalB <= usedB);
+                const isExpiredB = b.approved && (b.classType !== 'FREE_PASS' && totalB <= usedB);
                 const isPendingB = !b.approved && !b.isDeleted;
 
                 if (sortKey === 'priority') {
@@ -325,7 +325,8 @@
             sortedUsers.forEach(u => {
                 const total = Number(u.totalHours || 0);
                 const used = Number(u.usedHours || 0);
-                const isExpired = u.approved && (total <= used);
+                const isFreePass = (u.classType === 'FREE_PASS');
+                const isExpired = u.approved && !isFreePass && (total <= used);
 
                 const usedCount = Math.floor(used / 5);
                 const totalCount = Math.floor(total / 5);
@@ -357,7 +358,7 @@
                     </select>
                 `;
 
-                if(u.classType === 'FREE_PASS') {
+                if(isFreePass) {
                     currentClassSelectHTML += `
                         <select onchange="adminChangePassSeat('${u.id}', this.value)" style="font-size:0.75rem; padding:2px; margin-top:2px;">
                             <option value="M01" ${u.passSeat === 'M01' ? 'selected' : ''}>M01 전용</option>
@@ -372,6 +373,11 @@
                     `<span style="color:#d97706; font-weight:800; font-size:0.9rem;">NO</span>`;
 
                 let actionBtnHTML = '';
+
+                // 🛑 자유이용권의 경우 사용시간을 '무제한'으로 표기
+                let timeDisplayHTML = isFreePass ? 
+                    `<b style="color:#16a34a;">무제한 (1개월)</b>` : 
+                    `<b>${usedCount}회 / ${totalCount}회</b><br><span style="font-size:0.75rem; color:#64748b;">(${used}h / ${total}h)</span>`;
 
                 if (u.isDeleted) {
                     displayIdHTML = `<strong style="color:#ef4444;">${u.id}(탈퇴)</strong>`;
@@ -393,8 +399,7 @@
                     <td>${historyDropdownHTML}</td>
                     <td>${currentClassSelectHTML}</td>
                     <td>
-                        <b>${usedCount}회 / ${totalCount}회</b><br>
-                        <span style="font-size:0.75rem; color:#64748b;">(${used}h / ${total}h)</span>
+                        ${timeDisplayHTML}
                         ${isExpired && !u.isDeleted ? '<br><b style="color:#ef4444; font-size:0.75rem;">[만료됨]</b>' : ''}
                     </td>
                     <td>${statusBadgeHTML}</td>
@@ -418,13 +423,18 @@
                     cachedUsersMap[u.id] = u;
                     rawUsersList.push(u);
 
-                    // 승인된 자유이용권 회원 추적
+                    // 🛑 승인된 자유이용권 회원의 1개월 유효기간 검증
                     if (u.classType === 'FREE_PASS' && u.approved && !u.isDeleted) {
-                        passReservedUsers.push({
-                            id: u.id,
-                            name: u.name,
-                            seat: u.passSeat || 'M01'
-                        });
+                        const passEnd = u.passEndDate ? u.passEndDate.substring(0, 10) : '';
+                        if (!passEnd || todayStr <= passEnd) {
+                            passReservedUsers.push({
+                                id: u.id,
+                                name: u.name,
+                                seat: u.passSeat || 'M01',
+                                startDate: u.passStartDate || '',
+                                endDate: passEnd
+                            });
+                        }
                     }
                 });
 
@@ -462,8 +472,10 @@
 
                 const dayBookings = cachedBookings.filter(b => b.date === dateStr);
                 
-                // 🛑 자유이용권 회원 점유 건수(지정 좌석 * 시간대 수) 자동 합산
-                const passOccupiedCount = passReservedUsers.length * slots.length;
+                // 🛑 유효기간 1개월 범위에 해당하는 자유이용권만 점유 카운트에 가산
+                const activePassesOnDay = passReservedUsers.filter(p => (!p.startDate || p.startDate <= dateStr) && (!p.endDate || dateStr <= p.endDate));
+                const passOccupiedCount = activePassesOnDay.length * slots.length;
+
                 const count = dayBookings.length + passOccupiedCount;
                 const totalCap = slots.length * 4;
 
@@ -497,6 +509,8 @@
             title.textContent = `📌 ${dateStr} 좌석별 예약 현황`;
             container.innerHTML = '';
 
+            const activePassesOnDay = passReservedUsers.filter(p => (!p.startDate || p.startDate <= dateStr) && (!p.endDate || dateStr <= p.endDate));
+
             slots.forEach(slot => {
                 const slotBookings = cachedBookings.filter(b => b.date === dateStr && b.time === slot);
                 const slotBox = document.createElement('div');
@@ -506,7 +520,7 @@
                 let seatCardsHTML = '';
                 ["M01", "M02", "M03", "M04"].forEach(seat => {
                     const booked = slotBookings.find(b => b.seat === seat);
-                    const passUser = passReservedUsers.find(p => p.seat === seat);
+                    const passUser = activePassesOnDay.find(p => p.seat === seat);
 
                     if (booked) {
                         const userObj = cachedUsersMap[booked.userId] || {};
@@ -522,7 +536,6 @@
                                 <span style="font-size:0.75rem;">(${displayId})</span>
                             </div>`;
                     } else if (passUser) {
-                        // 🛑 달력 좌석 현황 카드에 승인된 자유이용권 상시 점유 표기
                         seatCardsHTML += `
                             <div style="background:#dcfce7; border:1px solid #16a34a; padding:8px; border-radius:6px; font-size:0.8rem; text-align:center; color:#15803d;">
                                 <strong style="color:#15803d;">${seat} (자유이용권)</strong><br>
@@ -553,6 +566,7 @@
             alert(`${userId} 회원의 클래스 신청이 승인되었습니다.`);
         }
 
+        // 🛑 자유이용권 설정 시 부여 시점부터 1개월(30일) 유효기간 생성
         async function adminChangeUserClass(userId, classVal) {
             let total = 0;
             if (classVal === 'BASIC_1') total = 5;
@@ -569,13 +583,22 @@
                 history.push(classVal);
             }
 
+            const startDateObj = new Date();
+            const endDateObj = new Date();
+            endDateObj.setDate(startDateObj.getDate() + 30); // 1개월(30일) 적용
+
+            const startDateStr = startDateObj.toISOString().substring(0, 10);
+            const endDateStr = endDateObj.toISOString().substring(0, 10);
+
             const updateData = {
                 classType: classVal,
                 totalHours: total,
                 usedHours: 0,
                 approved: classVal !== '미지정',
                 isCanceled: false,
-                classHistory: history
+                classHistory: history,
+                passStartDate: classVal === 'FREE_PASS' ? startDateStr : null,
+                passEndDate: classVal === 'FREE_PASS' ? endDateStr : null
             };
 
             if (classVal === 'FREE_PASS' && !currentData.passSeat) {
@@ -592,7 +615,7 @@
         }
 
         async function reApproveUser(userId) {
-            if(!confirm(`${userId} 회원의 사용시간을 초기화하시겠습니까?`)) return;
+            if(!confirm(`${userId} 회원의 사용시간을 초기화하고 재승인하시겠습니까?`)) return;
             await db.collection('users').doc(userId).update({ 
                 usedHours: 0,
                 isCanceled: false,
