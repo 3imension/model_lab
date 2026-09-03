@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 관리자 페이지</title>
-    <link rel="stylesheet" href="style.css?v=3.6">
+    <link rel="stylesheet" href="style.css?v=3.7">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -40,7 +40,7 @@
                 </div>
             </div>
 
-            <!-- 2. 회원 목록 및 클래스 직접 부여/승인 -->
+            <!-- 2. 회원 목록 및 클래스 승인 관리 -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                 <h3 style="margin: 0;">2. 회원 목록 및 클래스 승인 관리</h3>
                 
@@ -142,6 +142,7 @@
         let cachedBookings = [];
         let cachedUsersMap = {};
         let rawUsersList = [];
+        let passReservedUsers = []; // 승인된 자유이용권 회원 목록
 
         function loadNoticeImageAdmin() {
             if(!db) return;
@@ -409,16 +410,27 @@
             db.collection('users').onSnapshot(snapshot => {
                 rawUsersList = [];
                 cachedUsersMap = {};
+                passReservedUsers = [];
 
                 snapshot.docs.forEach(doc => {
                     const u = doc.data();
                     if (u.id === '3imension') return;
                     cachedUsersMap[u.id] = u;
                     rawUsersList.push(u);
+
+                    // 승인된 자유이용권 회원 추적
+                    if (u.classType === 'FREE_PASS' && u.approved && !u.isDeleted) {
+                        passReservedUsers.push({
+                            id: u.id,
+                            name: u.name,
+                            seat: u.passSeat || 'M01'
+                        });
+                    }
                 });
 
                 renderUserList();
                 applyBookingSort();
+                renderAdminCalendar();
             });
 
             db.collection('bookings').onSnapshot(snapshot => {
@@ -449,7 +461,10 @@
                     ["19:00 - 23:00 (평일 야간)"];
 
                 const dayBookings = cachedBookings.filter(b => b.date === dateStr);
-                const count = dayBookings.length;
+                
+                // 🛑 자유이용권 회원 점유 건수(지정 좌석 * 시간대 수) 자동 합산
+                const passOccupiedCount = passReservedUsers.length * slots.length;
+                const count = dayBookings.length + passOccupiedCount;
                 const totalCap = slots.length * 4;
 
                 const cell = document.createElement('div');
@@ -491,6 +506,8 @@
                 let seatCardsHTML = '';
                 ["M01", "M02", "M03", "M04"].forEach(seat => {
                     const booked = slotBookings.find(b => b.seat === seat);
+                    const passUser = passReservedUsers.find(p => p.seat === seat);
+
                     if (booked) {
                         const userObj = cachedUsersMap[booked.userId] || {};
                         let displayId = booked.userId;
@@ -503,6 +520,14 @@
                                 <strong style="color:#b45309;">${seat}</strong><br>
                                 <span style="font-weight:bold; color:#1e293b;">${booked.userName}</span><br>
                                 <span style="font-size:0.75rem;">(${displayId})</span>
+                            </div>`;
+                    } else if (passUser) {
+                        // 🛑 달력 좌석 현황 카드에 승인된 자유이용권 상시 점유 표기
+                        seatCardsHTML += `
+                            <div style="background:#dcfce7; border:1px solid #16a34a; padding:8px; border-radius:6px; font-size:0.8rem; text-align:center; color:#15803d;">
+                                <strong style="color:#15803d;">${seat} (자유이용권)</strong><br>
+                                <span style="font-weight:bold; color:#166534;">${passUser.name}</span><br>
+                                <span style="font-size:0.75rem;">(${passUser.id})</span>
                             </div>`;
                     } else {
                         seatCardsHTML += `
@@ -577,7 +602,7 @@
         }
 
         document.getElementById('admin-prev-btn').onclick = () => { adminMonth--; if(adminMonth<0){adminMonth=11; adminYear--;} renderAdminCalendar(); };
-        document.getElementById('admin-next-btn').onclick = () => { adminMonth++; if(adminMonth>11){adminMonth=0; adminYear--;} renderAdminCalendar(); };
+        document.getElementById('admin-next-btn').onclick = () => { adminMonth++; if(adminMonth>11){adminMonth=0; adminYear++;} renderAdminCalendar(); };
 
         document.addEventListener('DOMContentLoaded', () => {
             loadNoticeImageAdmin();
