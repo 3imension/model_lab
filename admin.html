@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 관리자 페이지</title>
-    <link rel="stylesheet" href="style.css?v=2.6">
+    <link rel="stylesheet" href="style.css?v=3.1">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -40,8 +40,8 @@
                 </div>
             </div>
 
-            <!-- 2. 회원 목록 -->
-            <h3 style="margin-bottom: 15px;">2. 회원 목록 및 클래스 승인 관리</h3>
+            <!-- 2. 회원 목록 및 횟수 조정 -->
+            <h3 style="margin-bottom: 15px;">2. 회원 목록 및 클래스 승인 / 횟수 관리</h3>
             <table class="admin-table" style="margin-bottom: 30px;">
                 <thead>
                     <tr>
@@ -51,9 +51,9 @@
                         <th>연락처</th>
                         <th>신청 클래스 이력</th>
                         <th>현재 클래스</th>
-                        <th>사용시간</th>
+                        <th>사용/총 횟수</th>
                         <th>승인 상태</th>
-                        <th>처리 / 시간 재승인</th>
+                        <th>처리 / 횟수 조정</th>
                     </tr>
                 </thead>
                 <tbody id="admin-user-list"></tbody>
@@ -86,7 +86,6 @@
                             <option value="time">시간대 기준</option>
                             <option value="userId">아이디 기준</option>
                             <option value="classType">클래스 기준</option>
-                            <option value="status">상태 기준</option>
                         </select>
 
                         <select id="sort-order-select" onchange="applyBookingSort()" style="width: 110px; padding: 6px; font-size: 0.85rem;">
@@ -201,32 +200,18 @@
             } else if (dateStr > todayStr) {
                 return { code: 2, html: `<span style="background:#dbeafe; color:#1d4ed8; padding:4px 8px; border-radius:4px; font-size:0.78rem; font-weight:bold;">예약중</span>` };
             } else {
-                const currentHour = now.getHours();
-                let startHour = 0, endHour = 24;
-
-                if (timeStr.includes("10:00 - 14:00")) { startHour = 10; endHour = 14; }
-                else if (timeStr.includes("14:00 - 18:00")) { startHour = 14; endHour = 18; }
-                else if (timeStr.includes("18:00 - 22:00")) { startHour = 18; endHour = 22; }
-                else if (timeStr.includes("19:00 - 23:00")) { startHour = 19; endHour = 23; }
-
-                if (currentHour >= startHour && currentHour < endHour) {
-                    return { code: 1, html: `<span style="background:#dcfce7; color:#15803d; padding:4px 8px; border-radius:4px; font-size:0.78rem; font-weight:bold;">이용중</span>` };
-                } else if (currentHour >= endHour) {
-                    return { code: 3, html: `<span style="background:#cbd5e1; color:#475569; padding:4px 8px; border-radius:4px; font-size:0.78rem; font-weight:bold;">사용완료</span>` };
-                } else {
-                    return { code: 2, html: `<span style="background:#dbeafe; color:#1d4ed8; padding:4px 8px; border-radius:4px; font-size:0.78rem; font-weight:bold;">예약중</span>` };
-                }
+                return { code: 1, html: `<span style="background:#dcfce7; color:#15803d; padding:4px 8px; border-radius:4px; font-size:0.78rem; font-weight:bold;">당일 예약</span>` };
             }
         }
 
         function getClassTitle(code) {
             const map = {
-                'BASIC_1': 'BASIC (1회/5시간)',
-                'BASIC_4': 'BASIC (4회/20시간)',
-                'BASIC_8': 'BASIC (8회/40시간)',
-                'BASIC_16': 'BASIC (16회/80시간)',
+                'BASIC_1': 'BASIC (1회)',
+                'BASIC_4': 'BASIC (4회)',
+                'BASIC_8': 'BASIC (8회)',
+                'BASIC_16': 'BASIC (16회)',
                 'FREE_PASS': '자유이용권',
-                'CREATOR': 'CREATOR (8회/40시간)'
+                'CREATOR': 'CREATOR (8회)'
             };
             return map[code] || code || '미지정';
         }
@@ -244,9 +229,6 @@
                 if (sortKey === 'classType') {
                     valA = cachedUsersMap[a.userId]?.classType || '미지정';
                     valB = cachedUsersMap[b.userId]?.classType || '미지정';
-                } else if (sortKey === 'status') {
-                    valA = getBookingStatusInfo(a.date, a.time || '').code;
-                    valB = getBookingStatusInfo(b.date, b.time || '').code;
                 }
 
                 if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
@@ -295,12 +277,9 @@
                     if (u.id === '3imension') return;
                     cachedUsersMap[u.id] = u;
 
-                    const total = Number(u.totalHours || 0);
-                    const used = Number(u.usedHours || 0);
-                    const isExpired = u.approved && (total <= used);
-
-                    const usedCount = Math.floor(used / 5);
-                    const totalCount = Math.floor(total / 5);
+                    const totalCount = Number(u.totalCount || 0);
+                    const usedCount = Number(u.usedCount || 0);
+                    const isExpired = u.approved && (totalCount <= usedCount);
 
                     let regDateStr = '-';
                     if (u.createdAt) {
@@ -327,7 +306,9 @@
                     } else {
                         actionBtnHTML = `
                             ${!u.approved ? `<button onclick="approveUser('${u.id}')" class="nav-btn btn-success">클래스 승인</button>` : ''}
-                            ${isExpired || u.approved ? `<button onclick="reApproveUser('${u.id}')" class="nav-btn btn-primary" style="margin-top:2px;">시간 재승인</button>` : ''}
+                            ${isExpired || u.approved ? `<button onclick="reApproveUser('${u.id}')" class="nav-btn btn-primary" style="margin-top:2px;">회수 재승인/리셋</button>` : ''}
+                            <button onclick="adjustCountDirect('${u.id}', 1)" class="nav-btn btn-secondary" style="padding:2px 6px; font-size:0.75rem; margin-top:2px;">+1회</button>
+                            <button onclick="adjustCountDirect('${u.id}', -1)" class="nav-btn btn-secondary" style="padding:2px 6px; font-size:0.75rem; margin-top:2px;">-1회</button>
                         `;
                     }
 
@@ -340,8 +321,7 @@
                         <td style="font-size:0.78rem; color:#64748b; max-width:180px; word-break:break-all;">${historyHTML}</td>
                         <td><span style="font-size:0.82rem; font-weight:bold; color:#1e293b;">${currentClassHTML}</span></td>
                         <td>
-                            <b>${usedCount}회 / ${totalCount}회</b><br>
-                            <span style="font-size:0.75rem; color:#64748b;">(${used}h / ${total}h)</span>
+                            <b>${usedCount}회 / ${totalCount}회</b>
                             ${isExpired && !u.isDeleted ? '<br><b style="color:#ef4444; font-size:0.75rem;">[만료됨]</b>' : ''}
                         </td>
                         <td>${statusBadgeHTML}</td>
@@ -460,18 +440,28 @@
             alert(`${userId} 회원의 클래스 신청이 승인되었습니다.`);
         }
 
-        // 🛑 재승인 시 기존 클래스 정보 및 취소 플래그 완전 리셋
         async function reApproveUser(userId) {
-            if(!confirm(`${userId} 회원의 사용시간 및 클래스 상태를 리셋하시겠습니까?\n재승인 시 회원이 마이페이지에서 새로운 클래스를 다시 선택/신청할 수 있게 됩니다.`)) return;
+            if(!confirm(`${userId} 회원의 이용 횟수를 리셋하시겠습니까?\n재승인 시 회원이 마이페이지에서 새로운 클래스를 다시 선택/신청할 수 있게 됩니다.`)) return;
             await db.collection('users').doc(userId).update({ 
-                usedHours: 0,
-                totalHours: 0,
+                usedCount: 0,
+                totalCount: 0,
                 classType: "미지정",
                 passSeat: null,
-                approved: false,
-                isCanceled: false
+                approved: false
             });
-            alert(`${userId} 회원의 클래스가 리셋되었습니다. 회원이 마이페이지에서 새 클래스를 신청할 수 있습니다.`);
+            alert(`${userId} 회원의 이용 상태가 초기화되었습니다.`);
+        }
+
+        // 수동 횟수 조정 (+1회, -1회)
+        async function adjustCountDirect(userId, delta) {
+            const userRef = db.collection('users').doc(userId);
+            const userDoc = await userRef.get();
+            if (!userDoc.exists) return;
+
+            const currentTotal = Number(userDoc.data().totalCount || 0);
+            const newTotal = Math.max(0, currentTotal + delta);
+
+            await userRef.update({ totalCount: newTotal });
         }
 
         document.getElementById('admin-prev-btn').onclick = () => { adminMonth--; if(adminMonth<0){adminMonth=11; adminYear--;} renderAdminCalendar(); };

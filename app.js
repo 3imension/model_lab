@@ -1,5 +1,5 @@
 // ========================================================
-// MOLAB - Firebase Cloud Firestore 설정 및 초기화
+// MOLAB - Firebase Cloud Firestore 설정 및 세션 처리
 // ========================================================
 const firebaseConfig = {
     apiKey: "AIzaSyDkP5efJB5qvfs1zT8YGzHNLOdYxNRna0E",
@@ -23,9 +23,6 @@ try {
     console.error("Firebase 초기화 에러:", e);
 }
 
-// ========================================================
-// 세션 및 상단 헤더 동적 내비게이션
-// ========================================================
 function getCurrentUser() {
     try {
         return JSON.parse(localStorage.getItem('ml_session'));

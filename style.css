@@ -56,7 +56,7 @@ body {
     border-radius: 10px;
 }
 
-.logo-text h1 { font-size: 1.3rem; color: #0f172a; margin:0; }
+.logo-text h1 { font-size: 1.3rem; color: #0f172a; margin: 0; }
 .logo-text span { font-size: 0.8rem; color: #64748b; }
 
 .nav-buttons {
@@ -219,7 +219,7 @@ input[type="text"], input[type="password"], input[type="tel"], input[type="email
 .badge-status.approved { background: #dcfce7; color: #15803d; }
 .badge-status.pending { background: #fef9c3; color: #a16207; }
 
-/* 🎨 클래스 이력별 스타일 시각화 배지 */
+/* 클래스명 배지 시각화 */
 .class-badge {
     display: inline-block;
     padding: 3px 8px;
