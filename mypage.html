@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 내 정보 및 좌석 예약</title>
-    <link rel="stylesheet" href="style.css?v=3.8">
+    <link rel="stylesheet" href="style.css?v=3.9">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -39,7 +39,7 @@
                 </table>
             </div>
 
-            <!-- 🧡 2. 이용 클래스 현황 (무제한 표기) -->
+            <!-- 🧡 2. 이용 클래스 현황 -->
             <div style="background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); border: 2px solid #f97316; padding: 22px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 4px 12px rgba(249, 115, 22, 0.08);">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
                     <h2 style="font-size: 1.25rem; color: #c2410c; margin:0;">
@@ -68,7 +68,7 @@
                 </div>
             </div>
 
-            <!-- 💜 3. 좌석 예약 (자유이용권 회원도 달력 출력 및 기간 구분) -->
+            <!-- 💜 3. 좌석 예약 -->
             <div id="reservation-section" style="background: #f5f3ff; border: 2px solid #8b5cf6; padding: 22px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 4px 12px rgba(139, 92, 246, 0.06);">
                 <h2 style="font-size: 1.2rem; color: #6d28d9; margin-bottom: 15px;">
                     3. 좌석 예약 (달력에서 날짜 클릭 후 하단 좌석 직접 선택)
@@ -188,12 +188,16 @@
             };
         }
 
-        // 🛑 타 회원 이름 및 아이디 *** 익명 처리
         function maskString(str) {
             if (!str) return '***';
             const s = String(str).trim();
             if (s.length <= 1) return s + '***';
             return s.substring(0, 1) + '***';
+        }
+
+        // 날짜 객체에서 YYYY-MM-DD 스트링 반환
+        function formatDateStr(dateObj) {
+            return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
         }
 
         async function fetchPassSeats() {
@@ -205,12 +209,25 @@
 
             passReservedSeats = snapshot.docs.map(doc => {
                 const u = doc.data();
+                
+                // 🛑 날짜 미지정 시 가입일 또는 오늘 기준으로 1개월 자동 산출
+                let start = u.passStartDate || '';
+                let end = u.passEndDate || '';
+
+                if (!start || !end) {
+                    const regDate = u.createdAt ? (u.createdAt.toDate ? u.createdAt.toDate() : new Date(u.createdAt)) : new Date();
+                    start = formatDateStr(regDate);
+                    const endDateObj = new Date(regDate);
+                    endDateObj.setDate(endDateObj.getDate() + 30);
+                    end = formatDateStr(endDateObj);
+                }
+
                 return {
                     id: u.id,
                     name: u.name,
                     seat: u.passSeat || 'M01',
-                    startDate: u.passStartDate || '',
-                    endDate: u.passEndDate || ''
+                    startDate: start,
+                    endDate: end
                 };
             });
         }
@@ -236,7 +253,7 @@
 
             const currentHour = now.getHours();
             const tomorrowObj = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-            const tomorrowStr = `${tomorrowObj.getFullYear()}-${String(tomorrowObj.getMonth() + 1).padStart(2, '0')}-${String(tomorrowObj.getDate()).padStart(2, '0')}`;
+            const tomorrowStr = formatDateStr(tomorrowObj);
 
             sortedList.forEach(b => {
                 const tr = document.createElement('tr');
@@ -309,11 +326,22 @@
                 
                 const isFreePass = (currentUserData.classType === 'FREE_PASS');
 
-                // 🛑 자유이용권 회원은 제공/잔여시간을 무제한으로 표기
+                // 🛑 날짜 미지정 보완 처리
+                let myPassStart = currentUserData.passStartDate || '';
+                let myPassEnd = currentUserData.passEndDate || '';
+
+                if (isFreePass && (!myPassStart || !myPassEnd)) {
+                    const regDate = currentUserData.createdAt ? (currentUserData.createdAt.toDate ? currentUserData.createdAt.toDate() : new Date(currentUserData.createdAt)) : new Date();
+                    myPassStart = formatDateStr(regDate);
+                    const endDateObj = new Date(regDate);
+                    endDateObj.setDate(endDateObj.getDate() + 30);
+                    myPassEnd = formatDateStr(endDateObj);
+                    currentUserData.passStartDate = myPassStart;
+                    currentUserData.passEndDate = myPassEnd;
+                }
+
                 if (isFreePass && currentUserData.approved) {
-                    const startStr = currentUserData.passStartDate || '-';
-                    const endStr = currentUserData.passEndDate || '-';
-                    document.getElementById('my-total').textContent = `무제한 (이용기간: ${startStr} ~ ${endStr})`;
+                    document.getElementById('my-total').textContent = `무제한 (이용기간: ${myPassStart} ~ ${myPassEnd})`;
                     document.getElementById('my-remain').textContent = `무제한 이용 중`;
                 } else {
                     const total = Number(currentUserData.totalHours || 0);
@@ -331,12 +359,12 @@
                     historyElem.textContent = '신청 이력이 없습니다.';
                 }
 
-                // 🛑 자유이용권 및 CREATOR 회원 안내창 표기
+                // 🛑 안내 문구 동적 세팅 (1개월 날짜 명확히 출력)
                 const passNoticeBox = document.getElementById('pass-creator-notice');
 
                 if (isFreePass && currentUserData.approved) {
                     passNoticeBox.style.display = 'block';
-                    passNoticeBox.innerHTML = `🌟 회원님은 <span style="color:#ea580c;">자유이용권(${currentUserData.passSeat || 'M01'} 전용)</span> 회원입니다.<br><span style="font-size:0.88rem; font-weight:normal; color:#475569;">이용기간(${currentUserData.passStartDate} ~ ${currentUserData.passEndDate}) 동안 별도 예약 없이 상시 이용 가능합니다.</span>`;
+                    passNoticeBox.innerHTML = `🌟 회원님은 <span style="color:#ea580c;">자유이용권(${currentUserData.passSeat || 'M01'} 전용)</span> 회원입니다.<br><span style="font-size:0.88rem; font-weight:normal; color:#475569;">이용기간(${myPassStart} ~ ${myPassEnd}) 동안 별도 예약 없이 상시 이용 가능합니다.</span>`;
                 } else if (currentUserData.classType === 'CREATOR' && currentUserData.approved) {
                     passNoticeBox.style.display = 'block';
                     passNoticeBox.innerHTML = `🎨 회원님은 <span style="color:#0d9488;">CREATOR</span> 회원입니다.<br><span style="font-size:0.88rem; font-weight:normal; color:#475569;">별도 지정 공간을 이용하는 클래스로, 시스템 예약을 진행하지 않습니다.</span>`;
@@ -344,7 +372,6 @@
                     passNoticeBox.style.display = 'none';
                 }
 
-                // 내 예약 데이터 로드
                 const snapshot = await db.collection('bookings').where('userId', '==', myId).get();
                 rawMyBookingsList = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
 
@@ -398,7 +425,7 @@
                 const myBookingsOnDay = dayBookings.filter(b => String(b.userId).trim() === myId);
                 const myCount = myBookingsOnDay.length;
 
-                // 자유이용권 회원 1개월 기간에 해당하는 일자인지 여부
+                // 🛑 1개월 유효기간 검증 (만료일 지나면 점유 해제)
                 const isMyPassDay = isFreePassUser && (myPassStart <= dateStr && dateStr <= myPassEnd);
 
                 const cell = document.createElement('div');
@@ -408,7 +435,6 @@
 
                 let badgeHTML = '';
 
-                // 🛑 자유이용권 1개월 해당 날짜 시각화
                 if (isMyPassDay) {
                     cell.style.border = '2px solid #16a34a';
                     cell.style.backgroundColor = '#f0fdf4';
@@ -469,13 +495,12 @@
                 ["M01", "M02", "M03", "M04"].forEach(seat => {
                     const booked = slotBookings.find(b => b.seat === seat);
                     
-                    // 해당 일자에 적용되는 자유이용권 사용자 필터링
+                    // 🛑 1개월 범위 조건에 해당하는 자유이용권 사용자만 점유 처리
                     const passOwner = passReservedSeats.find(p => p.seat === seat && (!p.startDate || p.startDate <= dateStr) && (!p.endDate || dateStr <= p.endDate));
 
                     if (booked) {
                         const isMine = (String(booked.userId).trim() === myId);
                         
-                        // 타 회원 마스킹 처리
                         const displayName = isMine ? booked.userName : maskString(booked.userName);
                         const displayUserId = isMine ? booked.userId : maskString(booked.userId);
 
@@ -517,7 +542,6 @@
         }
 
         function selectSeatDirect(slot, seat) {
-            // 자유이용권/CREATOR 회원은 수동 선택 불가
             if (currentUserData.classType === 'FREE_PASS' || currentUserData.classType === 'CREATOR') return;
 
             selTime = slot;

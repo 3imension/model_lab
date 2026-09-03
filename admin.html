@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 관리자 페이지</title>
-    <link rel="stylesheet" href="style.css?v=3.8">
+    <link rel="stylesheet" href="style.css?v=3.9">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -143,6 +143,10 @@
         let cachedUsersMap = {};
         let rawUsersList = [];
         let passReservedUsers = [];
+
+        function formatDateStr(dateObj) {
+            return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+        }
 
         function loadNoticeImageAdmin() {
             if(!db) return;
@@ -374,7 +378,6 @@
 
                 let actionBtnHTML = '';
 
-                // 🛑 자유이용권의 경우 사용시간을 '무제한'으로 표기
                 let timeDisplayHTML = isFreePass ? 
                     `<b style="color:#16a34a;">무제한 (1개월)</b>` : 
                     `<b>${usedCount}회 / ${totalCount}회</b><br><span style="font-size:0.75rem; color:#64748b;">(${used}h / ${total}h)</span>`;
@@ -423,16 +426,26 @@
                     cachedUsersMap[u.id] = u;
                     rawUsersList.push(u);
 
-                    // 🛑 승인된 자유이용권 회원의 1개월 유효기간 검증
+                    // 🛑 자유이용권 유효기간 보완 계산
                     if (u.classType === 'FREE_PASS' && u.approved && !u.isDeleted) {
-                        const passEnd = u.passEndDate ? u.passEndDate.substring(0, 10) : '';
-                        if (!passEnd || todayStr <= passEnd) {
+                        let start = u.passStartDate || '';
+                        let end = u.passEndDate || '';
+
+                        if (!start || !end) {
+                            const regDate = u.createdAt ? (u.createdAt.toDate ? u.createdAt.toDate() : new Date(u.createdAt)) : new Date();
+                            start = formatDateStr(regDate);
+                            const endDateObj = new Date(regDate);
+                            endDateObj.setDate(endDateObj.getDate() + 30);
+                            end = formatDateStr(endDateObj);
+                        }
+
+                        if (todayStr <= end) {
                             passReservedUsers.push({
                                 id: u.id,
                                 name: u.name,
                                 seat: u.passSeat || 'M01',
-                                startDate: u.passStartDate || '',
-                                endDate: passEnd
+                                startDate: start,
+                                endDate: end
                             });
                         }
                     }
@@ -472,7 +485,7 @@
 
                 const dayBookings = cachedBookings.filter(b => b.date === dateStr);
                 
-                // 🛑 유효기간 1개월 범위에 해당하는 자유이용권만 점유 카운트에 가산
+                // 🛑 해당 날짜가 1개월 유효기간 내에 들어올 때만 점유 건수로 가산
                 const activePassesOnDay = passReservedUsers.filter(p => (!p.startDate || p.startDate <= dateStr) && (!p.endDate || dateStr <= p.endDate));
                 const passOccupiedCount = activePassesOnDay.length * slots.length;
 
@@ -566,7 +579,6 @@
             alert(`${userId} 회원의 클래스 신청이 승인되었습니다.`);
         }
 
-        // 🛑 자유이용권 설정 시 부여 시점부터 1개월(30일) 유효기간 생성
         async function adminChangeUserClass(userId, classVal) {
             let total = 0;
             if (classVal === 'BASIC_1') total = 5;
@@ -585,10 +597,10 @@
 
             const startDateObj = new Date();
             const endDateObj = new Date();
-            endDateObj.setDate(startDateObj.getDate() + 30); // 1개월(30일) 적용
+            endDateObj.setDate(startDateObj.getDate() + 30);
 
-            const startDateStr = startDateObj.toISOString().substring(0, 10);
-            const endDateStr = endDateObj.toISOString().substring(0, 10);
+            const startDateStr = formatDateStr(startDateObj);
+            const endDateStr = formatDateStr(endDateObj);
 
             const updateData = {
                 classType: classVal,
