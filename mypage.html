@@ -29,21 +29,20 @@
                 <tr><th>총 제공 시간</th><td id="my-total">-</td><th>사용 / 잔여 시간</th><td id="my-remain">-</td></tr>
             </table>
 
-            <!-- 🎯 클래스 신청 및 변경 영역 (회원이 직접 선택 후 관리자 승인) -->
+            <!-- 🎯 "월" 단어가 완전히 제거된 클래스 선택 메뉴 -->
             <div style="background: #f8fafc; border: 1px solid #cbd5e1; padding: 16px; border-radius: 8px; margin-bottom: 25px;">
                 <h3 style="font-size: 1rem; margin-bottom: 10px; color: #1e293b;">📋 이용 클래스 신청 / 변경</h3>
                 <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
                     <select id="user-class-select" style="max-width: 320px;" onchange="togglePassSeatSelect()">
                         <option value="">클래스를 선택하세요</option>
-                        <option value="BASIC_1">BASIC (1회 / 5시간)</option>
-                        <option value="BASIC_4">BASIC (월 4회 / 20시간)</option>
-                        <option value="BASIC_8">BASIC (월 8회 / 40시간)</option>
-                        <option value="BASIC_16">BASIC (월 16회 / 80시간)</option>
-                        <option value="FREE_PASS">월 자유이용권 (M01/M03 전용좌석)</option>
-                        <option value="CREATOR">CREATOR (월 8회 / 40시간)</option>
+                        <option value="BASIC_1">BASIC (1회/5시간)</option>
+                        <option value="BASIC_4">BASIC (4회/20시간)</option>
+                        <option value="BASIC_8">BASIC (8회/40시간)</option>
+                        <option value="BASIC_16">BASIC (16회/80시간)</option>
+                        <option value="FREE_PASS">자유이용권 (M01/M03 전용좌석)</option>
+                        <option value="CREATOR">CREATOR (8회/40시간)</option>
                     </select>
 
-                    <!-- 자유이용권 선택 시 M01, M03 선택창 노출 -->
                     <select id="pass-seat-select" style="max-width: 180px; display: none;">
                         <option value="">전용좌석 선택</option>
                         <option value="M01">M01 좌석 지정</option>
@@ -105,24 +104,12 @@
                 document.getElementById('my-total').textContent = `${total} 시간`;
                 document.getElementById('my-remain').textContent = `${used} 시간 사용 / ${remain} 시간 남음`;
 
-                // 예약 내역 조회
-                const snapshot = await db.collection('bookings').get();
+                // 최적화: 내 ID 기반 직접 조회
+                const snapshot = await db.collection('bookings').where('userId', '==', myId).get();
                 const list = document.getElementById('my-booking-list');
                 list.innerHTML = '';
 
-                const searchId = myId.toLowerCase();
-                const searchName = String(user.name || '').trim().toLowerCase();
-
-                const myBookings = [];
-                snapshot.docs.forEach(doc => {
-                    const data = doc.data();
-                    const bUserId = String(data.userId || '').trim().toLowerCase();
-                    const bUserName = String(data.userName || '').trim().toLowerCase();
-
-                    if ((bUserId && bUserId === searchId) || (searchName && bUserName === searchName)) {
-                        myBookings.push({ docId: doc.id, ...data });
-                    }
-                });
+                const myBookings = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
 
                 if (myBookings.length === 0) {
                     list.innerHTML = '<tr><td colspan="4">예약 내역이 없습니다.</td></tr>';
@@ -176,7 +163,6 @@
             }
         }
 
-        // 회원이 직접 클래스 신청하기
         async function requestClassChange() {
             const classVal = document.getElementById('user-class-select').value;
             const passSeat = document.getElementById('pass-seat-select').value;
@@ -191,7 +177,7 @@
             else if (classVal === 'BASIC_4') total = 20;
             else if (classVal === 'BASIC_8' || classVal === 'CREATOR') total = 40;
             else if (classVal === 'BASIC_16') total = 80;
-            else if (classVal === 'FREE_PASS') total = 720; // 무제한
+            else if (classVal === 'FREE_PASS') total = 720;
 
             const myId = String(session.id).trim();
             await db.collection('users').doc(myId).update({
@@ -199,7 +185,7 @@
                 passSeat: classVal === 'FREE_PASS' ? passSeat : null,
                 totalHours: total,
                 usedHours: 0,
-                approved: false // 신청 시 승인대기로 변경 후 관리자가 승인
+                approved: false
             });
 
             alert('클래스 신청이 완료되었습니다.\n공방장(관리자)의 승인 후 예약을 진행하실 수 있습니다.');

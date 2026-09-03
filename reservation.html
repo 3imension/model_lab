@@ -24,7 +24,7 @@
             <main class="card-section">
                 <div class="calendar-nav-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                     <button id="res-prev-btn" class="nav-btn btn-secondary">&lt; 이전 달</button>
-                    <h3 id="res-month-title">2026년 9월</h3>
+                    <h3 id="res-month-title"></h3>
                     <button id="res-next-btn" class="nav-btn btn-secondary">다음 달 &gt;</button>
                 </div>
                 <div id="res-calendar" class="monthly-calendar-grid" style="margin-top:10px;"></div>
@@ -54,12 +54,16 @@
         const session = getCurrentUser();
         if (!session || !session.approved) { alert('승인된 회원만 이용 가능합니다.'); window.location.href = 'index.html'; }
 
-        let year = 2026, month = 8;
+        // 현재 연도/월 및 오늘 날짜 동적 연동
+        const now = new Date();
+        let year = now.getFullYear();
+        let month = now.getMonth();
+        const todayStr = now.toISOString().split('T')[0];
+
         let selDate = '', selTime = '', selSeat = '';
-        let passReservedSeats = []; // 자유이용권 전용 차단 좌석
+        let passReservedSeats = [];
         const seatBtns = document.querySelectorAll('.seat-btn');
 
-        // 승인된 자유이용권 회원들의 지정 좌석 가져오기
         async function fetchPassSeats() {
             if(!db) return;
             const snapshot = await db.collection('users')
@@ -87,7 +91,12 @@
             let bookings = [];
             try {
                 if (db) {
-                    const snapshot = await db.collection('bookings').get();
+                    const startStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+                    const endStr = `${year}-${String(month + 1).padStart(2, '0')}-31`;
+                    const snapshot = await db.collection('bookings')
+                        .where('date', '>=', startStr)
+                        .where('date', '<=', endStr)
+                        .get();
                     bookings = snapshot.docs.map(d => d.data());
                 }
             } catch(e) {}
@@ -103,6 +112,10 @@
                 const cell = document.createElement('div');
                 cell.className = 'calendar-day-cell';
                 if(selDate === dateStr) cell.classList.add('selected');
+
+                if (dateStr === todayStr) {
+                    cell.classList.add('is-today');
+                }
 
                 cell.innerHTML = `
                     <span class="day-number">${d}</span>
@@ -156,14 +169,12 @@
                 const s = btn.dataset.seat;
                 btn.classList.remove('selected', 'taken', 'pass-reserved');
                 
-                // 🛑 다른 회원의 자유이용권 전용 지정좌석 차단 검사
                 const passOwner = passReservedSeats.find(p => p.seat === s);
                 
                 if (taken.includes(s)) {
                     btn.classList.add('taken');
                     btn.disabled = true;
                 } else if (passOwner && passOwner.id !== myId && myData.classType !== 'FREE_PASS') {
-                    // 자유이용권 회원이 아닌 일반 회원은 해당 좌석 선택 불가
                     btn.classList.add('pass-reserved');
                     btn.title = "자유이용권 전용 지정좌석입니다.";
                     btn.disabled = true;
@@ -225,7 +236,6 @@
                 return;
             }
 
-            // 1회 예약 시 5시간 차감
             await db.collection('bookings').add({
                 userId: myId,
                 userName: session.name || '',

@@ -21,7 +21,6 @@
         </header>
 
         <main class="card-section">
-            <!-- 1. 이미지 게시 관리 -->
             <h3 style="margin-bottom: 12px;">🖼️ 메인 공지 이미지 게시/업로드</h3>
             <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:15px; border-radius:8px; margin-bottom: 30px;">
                 <div class="form-group">
@@ -40,7 +39,7 @@
                 </div>
             </div>
 
-            <!-- 2. 회원 관리 (새로운 클래스 옵션 및 승인) -->
+            <!-- "월" 단어가 완전히 제외된 클래스 선택 메뉴 -->
             <h3 style="margin-bottom: 15px;">2. 회원 가입 / 클래스 부여 / 시간 재승인 관리</h3>
             <table class="admin-table" style="margin-bottom: 30px;">
                 <thead>
@@ -52,12 +51,11 @@
                 <tbody id="admin-user-list"></tbody>
             </table>
 
-            <!-- 3. 위치 상단으로 이동된 캘린더 현황판 -->
             <div style="border-top: 2px dashed #e2e8f0; padding-top: 25px; margin-bottom: 35px;">
                 <h3 style="margin-bottom: 15px;">3. 월간 캘린더 및 일자별 좌석 현황</h3>
                 <div class="calendar-nav-header">
                     <button id="admin-prev-btn" class="nav-btn btn-secondary">&lt; 이전 달</button>
-                    <h3 id="admin-month-title">2026년 9월</h3>
+                    <h3 id="admin-month-title"></h3>
                     <button id="admin-next-btn" class="nav-btn btn-secondary">다음 달 &gt;</button>
                 </div>
 
@@ -69,7 +67,6 @@
                 </div>
             </div>
 
-            <!-- 4. 전체 회원 예약 현황 -->
             <div style="border-top: 2px dashed #e2e8f0; padding-top: 25px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                     <h3 style="margin: 0;">4. 전체 회원 예약 현황</h3>
@@ -111,7 +108,11 @@
             window.location.href = 'login.html';
         }
 
-        let adminYear = 2026, adminMonth = 8;
+        const now = new Date();
+        let adminYear = now.getFullYear();
+        let adminMonth = now.getMonth();
+        const todayStr = now.toISOString().split('T')[0];
+
         let cachedBookings = [];
         let cachedUsersMap = {};
 
@@ -187,9 +188,6 @@
         }
 
         function getBookingStatusInfo(dateStr, timeStr) {
-            const now = new Date();
-            const todayStr = now.toISOString().split('T')[0];
-
             if (dateStr < todayStr) {
                 return { code: 3, html: `<span style="background:#cbd5e1; color:#475569; padding:4px 8px; border-radius:4px; font-size:0.78rem; font-weight:bold;">사용완료</span>` };
             } else if (dateStr > todayStr) {
@@ -285,11 +283,11 @@
                             <select onchange="updateUserClassAdmin('${u.id}', this.value)">
                                 <option value="미지정" ${u.classType === '미지정' ? 'selected':''}>미지정</option>
                                 <option value="BASIC_1" ${u.classType === 'BASIC_1' ? 'selected':''}>BASIC (1회/5시간)</option>
-                                <option value="BASIC_4" ${u.classType === 'BASIC_4' ? 'selected':''}>BASIC (월4회/20시간)</option>
-                                <option value="BASIC_8" ${u.classType === 'BASIC_8' ? 'selected':''}>BASIC (월8회/40시간)</option>
-                                <option value="BASIC_16" ${u.classType === 'BASIC_16' ? 'selected':''}>BASIC (월16회/80시간)</option>
-                                <option value="FREE_PASS" ${u.classType === 'FREE_PASS' ? 'selected':''}>월 자유이용권</option>
-                                <option value="CREATOR" ${u.classType === 'CREATOR' ? 'selected':''}>CREATOR (월8회/40시간)</option>
+                                <option value="BASIC_4" ${u.classType === 'BASIC_4' ? 'selected':''}>BASIC (4회/20시간)</option>
+                                <option value="BASIC_8" ${u.classType === 'BASIC_8' ? 'selected':''}>BASIC (8회/40시간)</option>
+                                <option value="BASIC_16" ${u.classType === 'BASIC_16' ? 'selected':''}>BASIC (16회/80시간)</option>
+                                <option value="FREE_PASS" ${u.classType === 'FREE_PASS' ? 'selected':''}>자유이용권</option>
+                                <option value="CREATOR" ${u.classType === 'CREATOR' ? 'selected':''}>CREATOR (8회/40시간)</option>
                             </select>
                             ${u.classType === 'FREE_PASS' ? `
                                 <select style="margin-top:4px;" onchange="updatePassSeatAdmin('${u.id}', this.value)">
@@ -343,6 +341,11 @@
 
                 const cell = document.createElement('div');
                 cell.className = 'calendar-day-cell';
+                
+                if (dateStr === todayStr) {
+                    cell.classList.add('is-today');
+                }
+
                 cell.innerHTML = `
                     <span class="day-number">${d}</span>
                     <span class="day-status-badge ${count >= totalCap ? 'full' : count > 0 ? 'reserved' : 'available'}">
@@ -421,7 +424,7 @@
             else if (classVal === 'FREE_PASS') total = 720;
 
             const updateData = { classType: classVal, totalHours: total };
-            if (classVal === 'FREE_PASS') updateData.passSeat = 'M01'; // 기본 M01 부여
+            if (classVal === 'FREE_PASS') updateData.passSeat = 'M01';
 
             await db.collection('users').doc(userId).update(updateData);
             alert('회원 클래스 설정이 수정되었습니다.');

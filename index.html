@@ -9,7 +9,6 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- 메인 헤더 (사이트 타이틀 및 설명 반영) -->
         <header class="main-header">
             <a href="index.html" class="logo-area">
                 <div class="logo-icon">ML</div>
@@ -24,16 +23,14 @@
             </nav>
         </header>
 
-        <!-- 🖼️ 공지 이미지 영역 -->
         <section class="card-section" id="notice-img-card" style="display:none; margin-bottom: 20px; text-align: center; padding: 15px;">
             <img id="main-notice-img" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
         </section>
 
-        <!-- 월간 전체 현황 캘린더 -->
         <main class="card-section">
             <div class="calendar-nav-header">
                 <button id="prev-btn" class="nav-btn btn-secondary">&lt; 이전 달</button>
-                <h2 id="month-title">2026년 9월</h2>
+                <h2 id="month-title"></h2>
                 <button id="next-btn" class="nav-btn btn-secondary">다음 달 &gt;</button>
             </div>
             
@@ -43,20 +40,32 @@
 
     <script src="app.js"></script>
     <script>
-        let year = 2026, month = 8; // 8 = 9월
+        // ⚡ 시스템의 현재 연도와 월을 동적으로 자동 세팅
+        const now = new Date();
+        let year = now.getFullYear();
+        let month = now.getMonth();
+        const todayStr = now.toISOString().split('T')[0];
 
+        // 이미지 캐싱 처리로 첫 로딩 최적화
         function loadNoticeImage() {
             if(!db) return;
-            db.collection('settings').doc('notice_image').onSnapshot(doc => {
+            const cachedImg = sessionStorage.getItem('cached_notice_img');
+            if(cachedImg) {
+                document.getElementById('main-notice-img').src = cachedImg;
+                document.getElementById('notice-img-card').style.display = 'block';
+            }
+
+            db.collection('settings').doc('notice_image').get().then(doc => {
                 if (doc.exists && doc.data().url) {
-                    const card = document.getElementById('notice-img-card');
-                    const img = document.getElementById('main-notice-img');
-                    img.src = doc.data().url;
-                    card.style.display = 'block';
+                    const imgUrl = doc.data().url;
+                    sessionStorage.setItem('cached_notice_img', imgUrl);
+                    document.getElementById('main-notice-img').src = imgUrl;
+                    document.getElementById('notice-img-card').style.display = 'block';
                 } else {
+                    sessionStorage.removeItem('cached_notice_img');
                     document.getElementById('notice-img-card').style.display = 'none';
                 }
-            }, err => console.log(err));
+            }).catch(err => console.log(err));
         }
 
         async function renderMainCalendar() {
@@ -79,10 +88,16 @@
                 grid.appendChild(Object.assign(document.createElement('div'), { className: 'calendar-day-cell empty' }));
             }
 
+            // ⚡ 로딩 최적화: 해당 월 범위 데이터만 선택 쿼리
             let bookings = [];
             if(db) {
                 try {
-                    const snapshot = await db.collection('bookings').get();
+                    const startStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+                    const endStr = `${year}-${String(month + 1).padStart(2, '0')}-31`;
+                    const snapshot = await db.collection('bookings')
+                        .where('date', '>=', startStr)
+                        .where('date', '<=', endStr)
+                        .get();
                     bookings = snapshot.docs.map(doc => doc.data());
                 } catch(e) {}
             }
@@ -97,6 +112,12 @@
 
                 const cell = document.createElement('div');
                 cell.className = 'calendar-day-cell';
+                
+                // 오늘 날짜 자동 표기 적용
+                if (dateStr === todayStr) {
+                    cell.classList.add('is-today');
+                }
+
                 cell.innerHTML = `
                     <span class="day-number">${d}</span>
                     <span class="day-status-badge ${count >= totalCap ? 'full' : count > 0 ? 'reserved' : 'available'}">
