@@ -82,8 +82,8 @@
                 <p id="class-notice-text" style="font-size: 0.85rem; color: #ea580c; margin-bottom: 14px; font-weight:500;">* 신청 후 공방장(관리자)의 승인을 받으면 예약을 진행하실 수 있습니다.</p>
 
                 <div id="refund-notice-box" style="display:none; background:#fef2f2; border:2px solid #ef4444; color:#991b1b; padding:14px; border-radius:8px; font-size:0.88rem; margin-bottom:14px; font-weight:bold;">
-                    ⚠️ 현재 클래스가 취소 처리되었습니다.<br>
-                    미사용 예약은 모두 취소되었으며, 잔여 시간 환불 관련 문의는 공방장(관리자)에게 직접 연락해 주시기 바랍니다.
+                    ⚠️ 현재 클래스가 취소 처리 되었습니다.<br>
+                    기존 미사용 예약 삭제 및 환불 관련 문의는 공방장(관리자)에게 직접 연락해 주시기 바랍니다.
                 </div>
 
                 <div style="background:#ffffff; border:1px solid #fed7aa; padding:12px 16px; border-radius:8px; font-size:0.85rem;">
@@ -182,14 +182,7 @@
             return map[code] || code || '미지정';
         }
 
-        function getClassBadgeHTML(code) {
-            const title = getClassTitle(code);
-            const classKey = code || 'BASIC_1';
-            return `<span class="class-badge ${classKey}">${title}</span>`;
-        }
-
         function getClassStyleByHistoryIndex(index, code) {
-            const borders = ['2px solid #2563eb', '2px dashed #ea580c', '2px dotted #8b5cf6', '2px double #16a34a', '2px solid #db2777'];
             const colors = [
                 { bg: '#dbeafe', text: '#1e40af', border: '#60a5fa' },
                 { bg: '#ffedd5', text: '#c2410c', border: '#fb923c' },
@@ -199,8 +192,8 @@
             ];
             const idx = (index || 0) % colors.length;
             return {
-                style: `background:${colors[idx].bg}; color:${colors[idx].text}; border:${colors[idx].border};`,
-                borderStyle: borders[idx],
+                style: `background:${colors[idx].bg}; color:${colors[idx].text}; border:1px solid ${colors[idx].border};`,
+                borderStyle: `2px solid ${colors[idx].border}`,
                 colorObj: colors[idx]
             };
         }
@@ -266,17 +259,12 @@
                 const refundNotice = document.getElementById('refund-notice-box');
 
                 if (currentUserData.isCanceled) {
-                    // 클래스 이용 취소 상태
-                    submitBtn.style.display = "inline-block";
-                    submitBtn.disabled = false;
-                    submitBtn.className = "nav-btn btn-primary";
-                    submitBtn.textContent = "클래스 신청하기";
+                    submitBtn.style.display = "none";
                     cancelBtn.style.display = "none";
-                    classSelect.disabled = false;
-                    noticeText.style.display = "block";
+                    classSelect.disabled = true;
+                    noticeText.style.display = "none";
                     refundNotice.style.display = "block";
                 } else if (currentUserData.approved && total > 0 && used < total) {
-                    // 정상 이용 중
                     submitBtn.style.display = "inline-block";
                     submitBtn.disabled = true;
                     submitBtn.className = "nav-btn btn-success";
@@ -287,7 +275,6 @@
                     noticeText.textContent = "현재 클래스 이용이 정상 승인되어 사용 중입니다. 취소 또는 만료 후 변경 가능합니다.";
                     noticeText.style.color = "#16a34a";
                 } else if (currentUserData.approved && total > 0 && total <= used) {
-                    // 이용시간만료
                     submitBtn.style.display = "inline-block";
                     submitBtn.disabled = true;
                     submitBtn.className = "nav-btn btn-disabled";
@@ -299,17 +286,21 @@
                     noticeText.textContent = "이용 제공 시간이 모두 만료되어 더 이상 예약이 불가능합니다. 관리자의 재승인을 받으세요.";
                     noticeText.style.color = "#dc2626";
                 } else {
-                    // 신청 가능
+                    // 미승인 또는 관리자 재승인 완료 상태 (신청 버튼 정상 활성화)
                     submitBtn.style.display = "inline-block";
                     submitBtn.disabled = false;
                     submitBtn.className = "nav-btn btn-primary";
+                    submitBtn.style.background = "";
                     submitBtn.textContent = "클래스 신청하기";
                     cancelBtn.style.display = "none";
                     classSelect.disabled = false;
                     refundNotice.style.display = "none";
+                    noticeText.style.display = "block";
+                    noticeText.textContent = "* 신청 후 공방장(관리자)의 승인을 받으면 예약을 진행하실 수 있습니다.";
+                    noticeText.style.color = "#ea580c";
                 }
 
-                // 내 좌석 예약 목록 로드
+                // 4. 내 예약 목록 로드
                 const snapshot = await db.collection('bookings').where('userId', '==', myId).get();
                 const list = document.getElementById('my-booking-list');
                 list.innerHTML = '';
@@ -596,26 +587,26 @@
             location.reload();
         }
 
-        // 🛑 클래스 이용 취소 + 미사용(미래) 예약 일괄 취소 로직
+        // 🛑 클래스 중도 취소 시 미사용(미래) 예약 일괄 삭제 처리
         async function cancelCurrentClass() {
-            if (!confirm('정말로 현재 클래스 이용을 취소하시겠습니까?\n취소 시 현재 예약되어 있는 미사용(오늘 및 미래) 예약도 함께 전체 취소 처리됩니다.')) return;
+            if (!confirm('정말로 현재 클래스 이용을 취소하시겠습니까?\n취소 시 아직 도착하지 않은 미사용 예약들이 모두 자동 취소됩니다.')) return;
 
             try {
                 const myId = String(session.id).trim();
-
-                // 오늘 및 미래 예약 일괄 삭제
-                const bookingsSnapshot = await db.collection('bookings')
+                
+                // 오늘 이후 미사용 예약 일괄 조회 및 삭제
+                const snapshot = await db.collection('bookings')
                     .where('userId', '==', myId)
                     .where('date', '>=', todayStr)
                     .get();
 
                 const batch = db.batch();
-                bookingsSnapshot.docs.forEach(doc => {
+                snapshot.docs.forEach(doc => {
                     batch.delete(doc.ref);
                 });
                 await batch.commit();
 
-                // 상태 업데이트
+                // 회원 상태 업데이트
                 await db.collection('users').doc(myId).update({
                     isCanceled: true,
                     approved: false
