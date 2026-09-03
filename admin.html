@@ -2,8 +2,10 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 관리자 페이지</title>
-    <link rel="stylesheet" href="style.css">
+    <!-- CSS 캐시 강제 갱신을 위해 ?v=2.0 추가 -->
+    <link rel="stylesheet" href="style.css?v=2.0">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -262,7 +264,6 @@
                 let userClass = getClassTitle(userObj.classType);
                 if(userObj.passSeat) userClass += `(${userObj.passSeat})`;
 
-                // 🛑 탈퇴 회원 빨간색 표기
                 let displayUserIdHTML = b.userId;
                 if (userObj.isDeleted) {
                     displayUserIdHTML = `<strong style="color:#ef4444;">${b.userId}(탈퇴)</strong>`;
@@ -316,7 +317,6 @@
                     let currentClassHTML = getClassTitle(u.classType);
                     if(u.passSeat) currentClassHTML += `<br><span style="font-size:0.75rem; color:#2563eb;">(${u.passSeat} 지정)</span>`;
 
-                    // 🛑 아이디(탈퇴) 빨간색 표기
                     let displayIdHTML = `<strong>${u.id}</strong>`;
                     let statusBadgeHTML = `<span class="badge-status ${u.approved ? 'approved' : 'pending'}">${u.approved ? '승인완료' : '승인대기'}</span>`;
                     let actionBtnHTML = '';
