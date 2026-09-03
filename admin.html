@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 관리자 페이지</title>
-    <link rel="stylesheet" href="style.css?v=3.2">
+    <link rel="stylesheet" href="style.css?v=3.3">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -40,25 +40,42 @@
                 </div>
             </div>
 
-            <!-- 2. 회원 목록 -->
-            <h3 style="margin-bottom: 15px;">2. 회원 목록 및 클래스 승인 관리</h3>
-            <table class="admin-table" style="margin-bottom: 30px;">
-                <thead>
-                    <tr>
-                        <th>가입일자</th>
-                        <th>아이디</th>
-                        <th>실명</th>
-                        <th>연락처</th>
-                        <th>신청 클래스 이력</th>
-                        <th>현재 클래스</th>
-                        <th>사용시간</th>
-                        <th>승인 상태</th>
-                        <th>처리 / 시간 재승인</th>
-                    </tr>
-                </thead>
-                <tbody id="admin-user-list"></tbody>
-            </table>
+            <!-- 2. 회원 목록 (정렬 옵션 + 상하 스크롤 + 이력 드롭다운 적용) -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                <h3 style="margin: 0;">2. 회원 목록 및 클래스 승인 관리</h3>
+                
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <label style="font-size: 0.85rem; font-weight: bold;">회원 정렬:</label>
+                    <select id="user-sort-key" onchange="renderUserList()" style="width: 170px; padding: 6px; font-size: 0.85rem;">
+                        <option value="priority">승인/재승인대기 우선</option>
+                        <option value="regDate">가입일자 최신순</option>
+                        <option value="name">실명순 (가나다)</option>
+                        <option value="id">아이디순</option>
+                    </select>
+                </div>
+            </div>
 
+            <!-- 회원 목록 상하 스크롤 박스 -->
+            <div style="max-height: 420px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 35px;">
+                <table class="admin-table" style="margin-top: 0; border: none;">
+                    <thead style="position: sticky; top: 0; z-index: 10; background: #f8fafc;">
+                        <tr>
+                            <th>가입일자</th>
+                            <th>아이디</th>
+                            <th>실명</th>
+                            <th>연락처</th>
+                            <th style="width:20%;">신청 클래스 이력</th>
+                            <th>현재 클래스</th>
+                            <th>사용시간</th>
+                            <th>승인 상태</th>
+                            <th>처리 / 시간 재승인</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-user-list"></tbody>
+                </table>
+            </div>
+
+            <!-- 3. 월간 캘린더 및 일자별 좌석 현황 -->
             <div style="border-top: 2px dashed #e2e8f0; padding-top: 25px; margin-bottom: 35px;">
                 <h3 style="margin-bottom: 15px;">3. 월간 캘린더 및 일자별 좌석 현황</h3>
                 <div class="calendar-nav-header">
@@ -75,6 +92,7 @@
                 </div>
             </div>
 
+            <!-- 4. 전체 회원 예약 현황 -->
             <div style="border-top: 2px dashed #e2e8f0; padding-top: 25px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                     <h3 style="margin: 0;">4. 전체 회원 예약 현황</h3>
@@ -95,14 +113,16 @@
                     </div>
                 </div>
 
-                <table class="admin-table">
-                    <thead>
-                        <tr>
-                            <th>예약 날짜</th><th>시간대</th><th>좌석</th><th>회원 ID</th><th>회원 이름</th><th>클래스</th><th>상태</th>
-                        </tr>
-                    </thead>
-                    <tbody id="admin-booking-list"></tbody>
-                </table>
+                <div style="max-height: 400px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px;">
+                    <table class="admin-table" style="margin-top: 0; border: none;">
+                        <thead style="position: sticky; top: 0; z-index: 10; background: #f8fafc;">
+                            <tr>
+                                <th>예약 날짜</th><th>시간대</th><th>좌석</th><th>회원 ID</th><th>회원 이름</th><th>클래스</th><th>상태</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-booking-list"></tbody>
+                    </table>
+                </div>
             </div>
         </main>
     </div>
@@ -122,6 +142,7 @@
 
         let cachedBookings = [];
         let cachedUsersMap = {};
+        let rawUsersList = [];
 
         function loadNoticeImageAdmin() {
             if(!db) return;
@@ -245,6 +266,7 @@
                 let userClass = getClassTitle(userObj.classType);
                 if(userObj.passSeat) userClass += `(${userObj.passSeat})`;
 
+                // 🛑 4번 전체 예약 현황에서도 탈퇴 회원은 아이디(탈퇴) 빨간색 표기
                 let displayUserIdHTML = b.userId;
                 if (userObj.isDeleted) {
                     displayUserIdHTML = `<strong style="color:#ef4444;">${b.userId}(탈퇴)</strong>`;
@@ -264,74 +286,127 @@
             });
         }
 
+        // 🌟 회원 목록 렌더링 (우선순위 정렬 + 드롭다운 이력 지원)
+        function renderUserList() {
+            const userListElem = document.getElementById('admin-user-list');
+            userListElem.innerHTML = '';
+
+            const sortKey = document.getElementById('user-sort-key').value;
+            let sortedUsers = [...rawUsersList];
+
+            sortedUsers.sort((a, b) => {
+                const totalA = Number(a.totalHours || 0);
+                const usedA = Number(a.usedHours || 0);
+                const isExpiredA = a.approved && (totalA <= usedA);
+                const isPendingA = !a.approved && !a.isDeleted;
+
+                const totalB = Number(b.totalHours || 0);
+                const usedB = Number(b.usedHours || 0);
+                const isExpiredB = b.approved && (totalB <= usedB);
+                const isPendingB = !b.approved && !b.isDeleted;
+
+                if (sortKey === 'priority') {
+                    // 1순위: 승인대기 회원이 최상단
+                    if (isPendingA && !isPendingB) return -1;
+                    if (!isPendingA && isPendingB) return 1;
+                    
+                    // 2순위: 재승인이 필요한 만료 회원이 상단
+                    if (isExpiredA && !isExpiredB) return -1;
+                    if (!isExpiredA && isExpiredB) return 1;
+
+                    // 3순위: 탈퇴 회원은 하단 배치
+                    if (a.isDeleted && !b.isDeleted) return 1;
+                    if (!a.isDeleted && b.isDeleted) return -1;
+                } else if (sortKey === 'regDate') {
+                    const timeA = a.createdAt?.seconds || 0;
+                    const timeB = b.createdAt?.seconds || 0;
+                    return timeB - timeA;
+                } else if (sortKey === 'name') {
+                    return (a.name || '').localeCompare(b.name || '');
+                } else if (sortKey === 'id') {
+                    return (a.id || '').localeCompare(b.id || '');
+                }
+                return 0;
+            });
+
+            sortedUsers.forEach(u => {
+                const total = Number(u.totalHours || 0);
+                const used = Number(u.usedHours || 0);
+                const isExpired = u.approved && (total <= used);
+
+                const usedCount = Math.floor(used / 5);
+                const totalCount = Math.floor(total / 5);
+
+                let regDateStr = '-';
+                if (u.createdAt) {
+                    const dateObj = u.createdAt.toDate ? u.createdAt.toDate() : new Date(u.createdAt);
+                    regDateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+                }
+
+                // 📜 신청 클래스 이력 드롭다운(Select) 변환
+                let historyDropdownHTML = '<span style="color:#94a3b8; font-size:0.8rem;">이력 없음</span>';
+                if (u.classHistory && Array.isArray(u.classHistory) && u.classHistory.length > 0) {
+                    historyDropdownHTML = `<select style="font-size:0.78rem; padding:4px; border-color:#cbd5e1; max-width:100%;">`;
+                    u.classHistory.forEach((cCode, idx) => {
+                        historyDropdownHTML += `<option value="${cCode}">${idx + 1}차: ${getClassTitle(cCode)}</option>`;
+                    });
+                    historyDropdownHTML += `</select>`;
+                }
+
+                let currentClassHTML = getClassTitle(u.classType);
+                if(u.passSeat) currentClassHTML += `<br><span style="font-size:0.75rem; color:#2563eb;">(${u.passSeat} 지정)</span>`;
+
+                // 🛑 탈퇴 회원 아이디 옆에 빨간색 (탈퇴) 표기
+                let displayIdHTML = `<strong>${u.id}</strong>`;
+                let statusBadgeHTML = `<span class="badge-status ${u.approved ? 'approved' : 'pending'}">${u.approved ? '승인완료' : '승인대기'}</span>`;
+                let actionBtnHTML = '';
+
+                if (u.isDeleted) {
+                    displayIdHTML = `<strong style="color:#ef4444;">${u.id}(탈퇴)</strong>`;
+                    statusBadgeHTML = `<span style="background:#fecdd3; color:#991b1b; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold;">탈퇴 회원</span>`;
+                    actionBtnHTML = `<span style="color:#94a3b8; font-size:0.8rem;">처리 불가</span>`;
+                } else {
+                    actionBtnHTML = `
+                        ${!u.approved ? `<button onclick="approveUser('${u.id}')" class="nav-btn btn-success" style="padding:4px 8px;">클래스 승인</button>` : ''}
+                        ${isExpired || u.approved ? `<button onclick="reApproveUser('${u.id}')" class="nav-btn btn-primary" style="padding:4px 8px; margin-top:2px;">시간 재승인</button>` : ''}
+                    `;
+                }
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-size:0.8rem; color:#64748b;">${regDateStr}</td>
+                    <td>${displayIdHTML}</td>
+                    <td>${u.name || '-'}</td>
+                    <td>${u.phone || '-'}</td>
+                    <td>${historyDropdownHTML}</td>
+                    <td><span style="font-size:0.82rem; font-weight:bold; color:#1e293b;">${currentClassHTML}</span></td>
+                    <td>
+                        <b>${usedCount}회 / ${totalCount}회</b><br>
+                        <span style="font-size:0.75rem; color:#64748b;">(${used}h / ${total}h)</span>
+                        ${isExpired && !u.isDeleted ? '<br><b style="color:#ef4444; font-size:0.75rem;">[만료됨]</b>' : ''}
+                    </td>
+                    <td>${statusBadgeHTML}</td>
+                    <td>${actionBtnHTML}</td>
+                `;
+                userListElem.appendChild(tr);
+            });
+        }
+
         function listenAdminData() {
             if(!db) return;
 
             db.collection('users').onSnapshot(snapshot => {
-                const userList = document.getElementById('admin-user-list');
-                userList.innerHTML = '';
+                rawUsersList = [];
                 cachedUsersMap = {};
-                
+
                 snapshot.docs.forEach(doc => {
                     const u = doc.data();
                     if (u.id === '3imension') return;
                     cachedUsersMap[u.id] = u;
-
-                    const total = Number(u.totalHours || 0);
-                    const used = Number(u.usedHours || 0);
-                    const isExpired = u.approved && (total <= used);
-
-                    const usedCount = Math.floor(used / 5);
-                    const totalCount = Math.floor(total / 5);
-
-                    let regDateStr = '-';
-                    if (u.createdAt) {
-                        const dateObj = u.createdAt.toDate ? u.createdAt.toDate() : new Date(u.createdAt);
-                        regDateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
-                    }
-
-                    let historyHTML = '-';
-                    if (u.classHistory && Array.isArray(u.classHistory) && u.classHistory.length > 0) {
-                        historyHTML = u.classHistory.map(c => getClassTitle(c)).join(' → ');
-                    }
-
-                    let currentClassHTML = getClassTitle(u.classType);
-                    if(u.passSeat) currentClassHTML += `<br><span style="font-size:0.75rem; color:#2563eb;">(${u.passSeat} 지정)</span>`;
-
-                    let displayIdHTML = `<strong>${u.id}</strong>`;
-                    let statusBadgeHTML = `<span class="badge-status ${u.approved ? 'approved' : 'pending'}">${u.approved ? '승인완료' : '승인대기'}</span>`;
-                    let actionBtnHTML = '';
-
-                    if (u.isDeleted) {
-                        displayIdHTML = `<strong style="color:#ef4444;">${u.id}(탈퇴)</strong>`;
-                        statusBadgeHTML = `<span style="background:#fecdd3; color:#991b1b; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold;">탈퇴 회원</span>`;
-                        actionBtnHTML = `<span style="color:#94a3b8; font-size:0.8rem;">처리 불가</span>`;
-                    } else {
-                        actionBtnHTML = `
-                            ${!u.approved ? `<button onclick="approveUser('${u.id}')" class="nav-btn btn-success">클래스 승인</button>` : ''}
-                            ${isExpired || u.approved ? `<button onclick="reApproveUser('${u.id}')" class="nav-btn btn-primary" style="margin-top:2px;">시간 재승인</button>` : ''}
-                        `;
-                    }
-
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td style="font-size:0.8rem; color:#64748b;">${regDateStr}</td>
-                        <td>${displayIdHTML}</td>
-                        <td>${u.name || '-'}</td>
-                        <td>${u.phone || '-'}</td>
-                        <td style="font-size:0.78rem; color:#64748b; max-width:180px; word-break:break-all;">${historyHTML}</td>
-                        <td><span style="font-size:0.82rem; font-weight:bold; color:#1e293b;">${currentClassHTML}</span></td>
-                        <td>
-                            <b>${usedCount}회 / ${totalCount}회</b><br>
-                            <span style="font-size:0.75rem; color:#64748b;">(${used}h / ${total}h)</span>
-                            ${isExpired && !u.isDeleted ? '<br><b style="color:#ef4444; font-size:0.75rem;">[만료됨]</b>' : ''}
-                        </td>
-                        <td>${statusBadgeHTML}</td>
-                        <td>${actionBtnHTML}</td>
-                    `;
-                    userList.appendChild(tr);
+                    rawUsersList.push(u);
                 });
 
+                renderUserList();
                 applyBookingSort();
             });
 
@@ -449,7 +524,8 @@
                 totalHours: 0,
                 classType: "미지정",
                 passSeat: null,
-                approved: false
+                approved: false,
+                isCanceled: false
             });
             alert(`${userId} 회원의 시간이 성공적으로 초기화되었습니다.`);
         }
