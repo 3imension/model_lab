@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 내 정보 및 좌석 예약</title>
-    <link rel="stylesheet" href="style.css?v=3.2">
+    <link rel="stylesheet" href="style.css?v=3.4">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -39,46 +39,29 @@
                 </table>
             </div>
 
-            <!-- 🧡 2. 이용 클래스 신청 / 변경 -->
+            <!-- 🧡 2. 이용 클래스 현황 (선택/버튼 삭제, 타이틀 강조 표기) -->
             <div style="background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); border: 2px solid #f97316; padding: 22px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 4px 12px rgba(249, 115, 22, 0.08);">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
-                    <h2 style="font-size: 1.2rem; color: #c2410c; margin:0;">
-                        2. 이용 클래스 신청 / 변경
+                    <h2 style="font-size: 1.25rem; color: #c2410c; margin:0;">
+                        2. 이용 클래스 현황
                     </h2>
                 </div>
 
                 <table class="admin-table" style="margin-bottom: 18px; background: #ffffff; border-radius:8px; overflow:hidden;">
                     <tr>
-                        <th style="background:#fff7ed; color:#9a3412;">현재 이용중인 클래스</th><td id="my-class" style="font-weight:bold; color:#ea580c;">-</td>
-                        <th style="background:#fff7ed; color:#9a3412;">승인 상태</th><td id="my-status" style="font-weight:bold;">-</td>
+                        <!-- 🎯 크고 명확하게 노출되는 현재 이용 중 클래스 -->
+                        <th style="background:#fff7ed; color:#9a3412; width:25%;">현재 이용중인 클래스</th>
+                        <td id="my-class" style="font-weight:bold; font-size:1.15rem; color:#ea580c; text-align:left; padding-left:15px;">-</td>
+                        <th style="background:#fff7ed; color:#9a3412; width:20%;">승인 상태</th>
+                        <td id="my-status" style="font-weight:bold;">-</td>
                     </tr>
                     <tr>
-                        <th style="background:#fff7ed; color:#9a3412;">총 제공 시간</th><td id="my-total">-</td>
-                        <th style="background:#fff7ed; color:#9a3412;">사용 / 잔여 시간</th><td id="my-remain" style="font-weight:bold; color:#2563eb;">-</td>
+                        <th style="background:#fff7ed; color:#9a3412;">총 제공 시간</th>
+                        <td id="my-total" style="text-align:left; padding-left:15px;">-</td>
+                        <th style="background:#fff7ed; color:#9a3412;">사용 / 잔여 시간</th>
+                        <td id="my-remain" style="font-weight:bold; color:#2563eb;">-</td>
                     </tr>
                 </table>
-
-                <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 12px;">
-                    <select id="user-class-select" style="max-width: 320px; border-color: #fdba74; font-weight:600; background:#ffffff;" onchange="togglePassSeatSelect()">
-                        <option value="">클래스를 선택하세요</option>
-                        <option value="BASIC_1">BASIC (1회/5시간)</option>
-                        <option value="BASIC_4">BASIC (4회/20시간)</option>
-                        <option value="BASIC_8">BASIC (8회/40시간)</option>
-                        <option value="BASIC_16">BASIC (16회/80시간)</option>
-                        <option value="FREE_PASS">자유이용권 (M01/M03 전용좌석)</option>
-                        <option value="CREATOR">CREATOR (8회/40시간)</option>
-                    </select>
-
-                    <select id="pass-seat-select" style="max-width: 180px; display: none; border-color: #fdba74; background:#ffffff;">
-                        <option value="">전용좌석 선택</option>
-                        <option value="M01">M01 좌석 지정</option>
-                        <option value="M03">M03 좌석 지정</option>
-                    </select>
-
-                    <button id="class-submit-btn" onclick="requestClassChange()" class="nav-btn btn-primary" style="padding:10px 20px; font-size:0.9rem;">클래스 신청하기</button>
-                </div>
-                
-                <p id="class-notice-text" style="font-size: 0.85rem; color: #ea580c; margin-bottom: 14px; font-weight:500;">* 신청 후 공방장(관리자)의 승인을 받으면 예약을 진행하실 수 있습니다.</p>
 
                 <div style="background:#ffffff; border:1px solid #fed7aa; padding:12px 16px; border-radius:8px; font-size:0.85rem;">
                     <strong>신청 클래스 과거 이력:</strong>
@@ -114,27 +97,43 @@
                 </div>
             </div>
 
-            <!-- 💚 4. 내 좌석 예약 내역 목록 -->
+            <!-- 💚 4. 내 좌석 예약 내역 목록 (소팅 드롭다운 + 스크롤바 적용) -->
             <div style="background: #ecfdf5; border: 2px solid #10b981; padding: 22px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.06);">
-                <h2 style="font-size: 1.2rem; color: #047857; margin-bottom: 6px;">
-                    4. 내 좌석 예약 내역 목록
-                </h2>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; flex-wrap:wrap; gap:10px;">
+                    <h2 style="font-size: 1.2rem; color: #047857; margin:0;">
+                        4. 내 좌석 예약 내역 목록
+                    </h2>
+
+                    <!-- 🎯 정렬 메뉴 드롭다운 -->
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <label style="font-size:0.8rem; font-weight:bold; color:#065f46;">정렬 기준:</label>
+                        <select id="my-booking-sort" onchange="renderMyBookingsList()" style="font-size:0.8rem; padding:4px 8px; border-color:#6ee7b7; border-radius:6px; background:#fff;">
+                            <option value="dateAsc">예약일 최신순 ▲</option>
+                            <option value="dateDesc">예약일 과거순 ▼</option>
+                            <option value="seat">좌석 번호순</option>
+                        </select>
+                    </div>
+                </div>
+
                 <p style="font-size:0.8rem; color:#059669; margin-bottom:12px;">* 개별 예약 취소 시 사용 시간이 즉시 복구됩니다 (예약일 1일 전까지 변경/취소 가능).</p>
                 
-                <table class="admin-table" style="background:#ffffff; border-radius:8px; overflow:hidden;">
-                    <thead>
-                        <tr style="background:#d1fae5;">
-                            <th style="color:#065f46; width:25%;">신청 클래스 이력</th>
-                            <th style="color:#065f46;">예약 날짜</th>
-                            <th style="color:#065f46;">시간대</th>
-                            <th style="color:#065f46;">좌석</th>
-                            <th style="color:#065f46;">상태 / 취소 / 변경</th>
-                        </tr>
-                    </thead>
-                    <tbody id="my-booking-list">
-                        <tr><td colspan="5">예약 내역을 불러오는 중...</td></tr>
-                    </tbody>
-                </table>
+                <!-- 스크롤바 박스 -->
+                <div style="max-height: 380px; overflow-y: auto; border: 1px solid #a7f3d0; border-radius: 8px;">
+                    <table class="admin-table" style="margin-top: 0; background:#ffffff; border:none;">
+                        <thead style="position:sticky; top:0; z-index:5; background:#d1fae5;">
+                            <tr>
+                                <th style="color:#065f46; width:25%;">신청 클래스 이력</th>
+                                <th style="color:#065f46;">예약 날짜</th>
+                                <th style="color:#065f46;">시간대</th>
+                                <th style="color:#065f46;">좌석</th>
+                                <th style="color:#065f46;">상태 / 취소 / 변경</th>
+                            </tr>
+                        </thead>
+                        <tbody id="my-booking-list">
+                            <tr><td colspan="5">예약 내역을 불러오는 중...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <div style="margin-top: 25px; text-align:right;">
@@ -157,11 +156,12 @@
         let passReservedSeats = [];
         let monthBookingsCache = [];
         let currentUserData = {};
+        let rawMyBookingsList = [];
 
         function togglePassSeatSelect() {
-            const classVal = document.getElementById('user-class-select').value;
+            const classVal = document.getElementById('user-class-select')?.value;
             const seatSelect = document.getElementById('pass-seat-select');
-            seatSelect.style.display = (classVal === 'FREE_PASS') ? 'inline-block' : 'none';
+            if (seatSelect) seatSelect.style.display = (classVal === 'FREE_PASS') ? 'inline-block' : 'none';
         }
 
         function getClassTitle(code) {
@@ -212,6 +212,78 @@
             }));
         }
 
+        function renderMyBookingsList() {
+            const list = document.getElementById('my-booking-list');
+            list.innerHTML = '';
+
+            if (rawMyBookingsList.length === 0) {
+                list.innerHTML = '<tr><td colspan="5">예약 내역이 없습니다.</td></tr>';
+                return;
+            }
+
+            const sortVal = document.getElementById('my-booking-sort').value;
+            let sortedList = [...rawMyBookingsList];
+
+            sortedList.sort((a, b) => {
+                if (sortVal === 'dateAsc') return a.date.localeCompare(b.date);
+                if (sortVal === 'dateDesc') return b.date.localeCompare(a.date);
+                if (sortVal === 'seat') return a.seat.localeCompare(b.seat);
+                return 0;
+            });
+
+            const currentHour = now.getHours();
+            const tomorrowObj = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+            const tomorrowStr = `${tomorrowObj.getFullYear()}-${String(tomorrowObj.getMonth() + 1).padStart(2, '0')}-${String(tomorrowObj.getDate()).padStart(2, '0')}`;
+
+            sortedList.forEach(b => {
+                const tr = document.createElement('tr');
+                let statusBtnHTML = '';
+
+                const isPast = b.date < todayStr;
+                const isToday = b.date === todayStr;
+                const canModify = b.date >= tomorrowStr;
+
+                if (isPast) {
+                    statusBtnHTML = `<span style="background:#cbd5e1; color:#475569; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">사용완료</span>`;
+                } else if (isToday) {
+                    const timeStr = b.time || '';
+                    let endHour = 24;
+                    if (timeStr.includes("10:00 - 14:00")) endHour = 14;
+                    else if (timeStr.includes("14:00 - 18:00")) endHour = 18;
+                    else if (timeStr.includes("18:00 - 22:00")) endHour = 22;
+                    else if (timeStr.includes("19:00 - 23:00")) endHour = 23;
+
+                    if (currentHour >= endHour) {
+                        statusBtnHTML = `<span style="background:#cbd5e1; color:#475569; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">사용완료</span>`;
+                    } else {
+                        statusBtnHTML = `<span style="background:#dcfce7; color:#15803d; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">당일 사용중/예약</span>`;
+                    }
+                } else if (canModify) {
+                    statusBtnHTML = `
+                        <button onclick="changeBookingModal('${b.docId}', '${b.date}', '${b.time}', '${b.seat}')" class="nav-btn btn-primary" style="padding: 4px 8px; font-size: 0.8rem; margin-right:4px;">예약 변경</button>
+                        <button onclick="cancelBooking('${b.docId}', ${b.hours || 5})" class="nav-btn btn-danger" style="padding: 4px 8px; font-size: 0.8rem;">예약 취소</button>
+                    `;
+                } else {
+                    statusBtnHTML = `<span style="background:#fef3c7; color:#b45309; padding:4px 8px; border-radius:4px; font-size:0.8rem; font-weight:bold;">변경/취소 불가</span>`;
+                }
+
+                const historyIdx = b.historyIndex || 0;
+                const classStyleObj = getClassStyleByHistoryIndex(historyIdx, b.classType);
+                const classTitle = getClassTitle(b.classType || currentUserData.classType);
+
+                const classBadgeHTML = `<span class="class-badge" style="${classStyleObj.style}">${classTitle}</span>`;
+
+                tr.innerHTML = `
+                    <td>${classBadgeHTML}</td>
+                    <td>${b.date}</td>
+                    <td>${b.time}</td>
+                    <td><strong style="color:#2563eb;">${b.seat}</strong></td>
+                    <td>${statusBtnHTML}</td>
+                `;
+                list.appendChild(tr);
+            });
+        }
+
         async function loadMyInfo() {
             try {
                 if (!db) return;
@@ -246,90 +318,11 @@
                     historyElem.textContent = '신청 이력이 없습니다.';
                 }
 
-                // 버튼 상태 제어
-                const submitBtn = document.getElementById('class-submit-btn');
-                const classSelect = document.getElementById('user-class-select');
-                const noticeText = document.getElementById('class-notice-text');
-
-                if (currentUserData.approved && total > 0 && used < total) {
-                    submitBtn.disabled = true;
-                    submitBtn.className = "nav-btn btn-success";
-                    submitBtn.textContent = "클래스 이용중";
-                    classSelect.disabled = true;
-                    noticeText.textContent = "현재 클래스 이용이 정상 승인되어 사용 중입니다. 만료 후 관리자의 재승인을 받으세요.";
-                    noticeText.style.color = "#16a34a";
-                } else if (currentUserData.approved && total > 0 && total <= used) {
-                    submitBtn.disabled = true;
-                    submitBtn.className = "nav-btn btn-disabled";
-                    submitBtn.style.background = "#d97706";
-                    submitBtn.textContent = "이용시간만료";
-                    classSelect.disabled = true;
-                    noticeText.textContent = "이용 제공 시간이 모두 만료되었습니다. 관리자의 재승인을 받으세요.";
-                    noticeText.style.color = "#dc2626";
-                } else {
-                    submitBtn.disabled = false;
-                    submitBtn.className = "nav-btn btn-primary";
-                    submitBtn.style.background = "";
-                    submitBtn.textContent = "클래스 신청하기";
-                    classSelect.disabled = false;
-                    noticeText.textContent = "* 신청 후 공방장(관리자)의 승인을 받으면 예약을 진행하실 수 있습니다.";
-                    noticeText.style.color = "#ea580c";
-                }
-
-                // 4. 내 좌석 예약 목록 로드
+                // 4. 내 예약 데이터 로드
                 const snapshot = await db.collection('bookings').where('userId', '==', myId).get();
-                const list = document.getElementById('my-booking-list');
-                list.innerHTML = '';
+                rawMyBookingsList = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
 
-                const myBookings = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
-
-                if (myBookings.length === 0) {
-                    list.innerHTML = '<tr><td colspan="5">예약 내역이 없습니다.</td></tr>';
-                } else {
-                    myBookings.sort((a, b) => a.date.localeCompare(b.date));
-                    const currentHour = now.getHours();
-
-                    const tomorrowObj = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-                    const tomorrowStr = `${tomorrowObj.getFullYear()}-${String(tomorrowObj.getMonth() + 1).padStart(2, '0')}-${String(tomorrowObj.getDate()).padStart(2, '0')}`;
-
-                    myBookings.forEach(b => {
-                        const tr = document.createElement('tr');
-                        let statusBtnHTML = '';
-
-                        const isPast = b.date < todayStr;
-                        const isToday = b.date === todayStr;
-                        const canModify = b.date >= tomorrowStr;
-
-                        if (isPast) {
-                            statusBtnHTML = `<span style="background:#cbd5e1; color:#475569; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">사용완료</span>`;
-                        } else if (isToday) {
-                            statusBtnHTML = `<span style="background:#dcfce7; color:#15803d; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">당일 예약</span>`;
-                        } else if (canModify) {
-                            statusBtnHTML = `
-                                <button onclick="changeBookingModal('${b.docId}', '${b.date}', '${b.time}', '${b.seat}')" class="nav-btn btn-primary" style="padding: 4px 8px; font-size: 0.8rem; margin-right:4px;">예약 변경</button>
-                                <button onclick="cancelBooking('${b.docId}', ${b.hours || 5})" class="nav-btn btn-danger" style="padding: 4px 8px; font-size: 0.8rem;">예약 취소</button>
-                            `;
-                        } else {
-                            statusBtnHTML = `<span style="background:#fef3c7; color:#b45309; padding:4px 8px; border-radius:4px; font-size:0.8rem; font-weight:bold;">변경/취소 불가</span>`;
-                        }
-
-                        const historyIdx = b.historyIndex || 0;
-                        const classStyleObj = getClassStyleByHistoryIndex(historyIdx, b.classType);
-                        const classTitle = getClassTitle(b.classType || currentUserData.classType);
-
-                        const classBadgeHTML = `<span class="class-badge" style="${classStyleObj.style}">${classTitle}</span>`;
-
-                        tr.innerHTML = `
-                            <td>${classBadgeHTML}</td>
-                            <td>${b.date}</td>
-                            <td>${b.time}</td>
-                            <td><strong style="color:#2563eb;">${b.seat}</strong></td>
-                            <td>${statusBtnHTML}</td>
-                        `;
-                        list.appendChild(tr);
-                    });
-                }
-
+                renderMyBookingsList();
                 await renderResCal();
 
             } catch (err) {
@@ -552,7 +545,6 @@
             location.reload();
         }
 
-        // 개별 예약 취소
         async function cancelBooking(docId, hoursToRefund) {
             if (!confirm('해당 예약을 취소하시겠습니까?\n취소 시 사용된 시간이 다시 환불됩니다.')) return;
 
@@ -620,42 +612,6 @@
 
         document.getElementById('res-prev-btn').onclick = () => { month--; if(month < 0){ month = 11; year--; } renderResCal(); };
         document.getElementById('res-next-btn').onclick = () => { month++; if(month > 11){ month = 0; year++; } renderResCal(); };
-
-        async function requestClassChange() {
-            const classVal = document.getElementById('user-class-select').value;
-            const passSeat = document.getElementById('pass-seat-select').value;
-
-            if (!classVal) return alert('신청할 클래스를 선택해 주세요.');
-            if (classVal === 'FREE_PASS' && !passSeat) {
-                return alert('자유이용권은 M01 또는 M03 좌석을 반드시 선택해야 합니다.');
-            }
-
-            let total = 0;
-            if (classVal === 'BASIC_1') total = 5;
-            else if (classVal === 'BASIC_4') total = 20;
-            else if (classVal === 'BASIC_8' || classVal === 'CREATOR') total = 40;
-            else if (classVal === 'BASIC_16') total = 80;
-            else if (classVal === 'FREE_PASS') total = 720;
-
-            const myId = String(session.id).trim();
-            const userDoc = await db.collection('users').doc(myId).get();
-            const currentData = userDoc.exists ? userDoc.data() : {};
-
-            const history = currentData.classHistory || [];
-            history.push(classVal);
-
-            await db.collection('users').doc(myId).update({
-                classType: classVal,
-                passSeat: classVal === 'FREE_PASS' ? passSeat : null,
-                totalHours: total,
-                usedHours: 0,
-                approved: false,
-                classHistory: history
-            });
-
-            alert('클래스 신청이 완료되었습니다.\n공방장(관리자)의 승인 후 예약을 진행하실 수 있습니다.');
-            location.reload();
-        }
 
         async function deleteAccount() {
             if (!confirm('정말로 탈퇴하시겠습니까? 데이터가 처리되며 관리자 목록에 탈퇴 상태로 기록됩니다.')) return;
