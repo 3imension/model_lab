@@ -38,7 +38,6 @@
             submitBtn.disabled = true;
             submitBtn.textContent = '로그인 확인 중...';
 
-            // 1. 관리자 계정 테스트 (DB 상태와 무관하게 무조건 즉시 승인)
             if (id === '3imension' && pw === '1234') {
                 const adminUser = { id: '3imension', name: '공방장(관리자)', approved: true };
                 localStorage.setItem('ml_session', JSON.stringify(adminUser));
@@ -47,29 +46,29 @@
                 return;
             }
 
-            // 2. 일반 회원 로그인 (DB 조회)
             try {
-                if (!db) {
-                    throw new Error("Firebase 데이터베이스 초기화 실패 (네트워크 또는 키 오류)");
-                }
+                if (!db) throw new Error("DB 연결 실패");
 
                 const doc = await db.collection('users').doc(id).get();
 
                 if (!doc.exists) {
-                    throw new Error(`'${id}' 아이디가 DB에 존재하지 않습니다. 먼저 회원가입을 완료해 주세요.`);
+                    throw new Error(`'${id}' 아이디가 존재하지 않습니다.`);
                 }
 
                 const userData = doc.data();
+
+                if (userData.isDeleted) {
+                    throw new Error("탈퇴 처리된 계정입니다. 로그인할 수 없습니다.");
+                }
 
                 if (userData.pw !== pw) {
                     throw new Error("비밀번호가 일치하지 않습니다.");
                 }
 
                 if (!userData.approved) {
-                    throw new Error("아직 공방장의 가입 승인이 완료되지 않았습니다. 관리자 페이지(3imension/1234)에서 승인해 주세요.");
+                    throw new Error("아직 공방장의 가입/클래스 승인이 완료되지 않았습니다.");
                 }
 
-                // 로그인 성공 세션 저장
                 localStorage.setItem('ml_session', JSON.stringify(userData));
                 alert(`${userData.name}님 환영합니다!`);
                 window.location.href = 'index.html';

@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>MOLAB - 내 정보 관리</title>
+    <title>MOLAB - 내 정보 및 좌석 예약</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -21,7 +21,8 @@
         </header>
 
         <main class="card-section">
-            <h2 style="margin-bottom: 15px;">회원 정보 및 클래스 현황</h2>
+            <!-- 1. 회원 정보 및 클래스 현황 -->
+            <h2 style="margin-bottom: 15px;">1. 회원 정보 및 클래스 현황</h2>
             <table class="admin-table" style="margin-bottom: 20px;">
                 <tr><th>이름</th><td id="my-name">-</td><th>아이디</th><td id="my-id">-</td></tr>
                 <tr><th>연락처</th><td id="my-phone">-</td><th>이메일</th><td id="my-email">-</td></tr>
@@ -29,6 +30,7 @@
                 <tr><th>총 제공 시간</th><td id="my-total">-</td><th>사용 / 잔여 시간</th><td id="my-remain">-</td></tr>
             </table>
 
+            <!-- 2. 이용 클래스 신청 / 변경 -->
             <div style="background: #f8fafc; border: 1px solid #cbd5e1; padding: 16px; border-radius: 8px; margin-bottom: 25px;">
                 <h3 style="font-size: 1rem; margin-bottom: 10px; color: #1e293b;">📋 이용 클래스 신청 / 변경</h3>
                 <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
@@ -53,28 +55,94 @@
                 <p id="class-notice-text" style="font-size: 0.8rem; color: #64748b; margin-top: 8px;">* 신청 후 공방장(관리자)의 승인을 받으면 예약을 진행하실 수 있습니다.</p>
             </div>
 
-            <h3>내 좌석 예약 내역</h3>
-            <table class="admin-table" style="margin-top: 10px;">
-                <thead><tr><th>예약 날짜</th><th>시간대</th><th>좌석</th><th>상태 / 취소</th></tr></thead>
-                <tbody id="my-booking-list">
-                    <tr><td colspan="4">예약 내역을 불러오는 중...</td></tr>
-                </tbody>
-            </table>
+            <!-- 3. 좌석 예약 통합 캘린더 및 세부 좌석 현황판 -->
+            <div style="border-top: 2px dashed #e2e8f0; padding-top: 25px; margin-bottom: 30px;">
+                <h3 style="margin-bottom: 15px;">3. 좌석 예약 (달력에서 원하는 날짜 선택)</h3>
+                <div class="reservation-layout" style="display:grid; grid-template-columns: 1.2fr 1fr; gap: 20px;">
+                    <div>
+                        <div class="calendar-nav-header">
+                            <button id="res-prev-btn" class="nav-btn btn-secondary">&lt; 이전 달</button>
+                            <h3 id="res-month-title"></h3>
+                            <button id="res-next-btn" class="nav-btn btn-secondary">다음 달 &gt;</button>
+                        </div>
+                        <div id="res-calendar" class="monthly-calendar-grid"></div>
+                    </div>
+
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; padding:16px; border-radius:8px;">
+                        <h4 id="res-title" style="margin-bottom:12px;">날짜를 클릭해 주세요</h4>
+                        <div class="form-group">
+                            <label>시간대 선택</label>
+                            <select id="time-select" disabled></select>
+                        </div>
+                        <div class="form-group">
+                            <label>좌석 선택 (4자리)</label>
+                            <div class="seat-map">
+                                <button type="button" class="seat-btn" data-seat="M01" disabled>M01</button>
+                                <button type="button" class="seat-btn" data-seat="M02" disabled>M02</button>
+                                <button type="button" class="seat-btn" data-seat="M03" disabled>M03</button>
+                                <button type="button" class="seat-btn" data-seat="M04" disabled>M04</button>
+                            </div>
+                        </div>
+                        <button type="button" id="confirm-btn" class="nav-btn btn-primary" style="width:100%; padding:12px;" disabled>예약 확정하기</button>
+                    </div>
+                </div>
+
+                <!-- 선택 날짜 좌석별 세부 카드가 표시되는 영역 -->
+                <div id="day-detail-section" style="margin-top: 25px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+                    <h4 id="detail-title" style="margin-bottom: 12px; font-size: 1rem; color: #1e293b;">날짜를 클릭하면 해당 날짜의 좌석별 예약 현황이 표시됩니다.</h4>
+                    <div id="detail-slots" class="slots-container"></div>
+                </div>
+            </div>
+
+            <!-- 4. 내 좌석 예약 내역 -->
+            <div style="border-top: 2px dashed #e2e8f0; padding-top: 25px;">
+                <h3>4. 내 좌석 예약 내역 목록</h3>
+                <table class="admin-table" style="margin-top: 10px;">
+                    <thead><tr><th>예약 날짜</th><th>시간대</th><th>좌석</th><th>상태 / 취소</th></tr></thead>
+                    <tbody id="my-booking-list">
+                        <tr><td colspan="4">예약 내역을 불러오는 중...</td></tr>
+                    </tbody>
+                </table>
+            </div>
 
             <div style="margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
                 <button onclick="deleteAccount()" class="nav-btn btn-danger">회원 탈퇴하기</button>
             </div>
         </main>
     </div>
+
     <script src="app.js"></script>
     <script>
         const session = getCurrentUser();
         if (!session) { alert('로그인이 필요합니다.'); window.location.href = 'login.html'; }
 
+        const now = new Date();
+        let year = now.getFullYear();
+        let month = now.getMonth();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+        let selDate = '', selTime = '', selSeat = '';
+        let passReservedSeats = [];
+        let monthBookingsCache = [];
+        const seatBtns = document.querySelectorAll('.seat-btn');
+
         function togglePassSeatSelect() {
             const classVal = document.getElementById('user-class-select').value;
             const seatSelect = document.getElementById('pass-seat-select');
             seatSelect.style.display = (classVal === 'FREE_PASS') ? 'inline-block' : 'none';
+        }
+
+        async function fetchPassSeats() {
+            if(!db) return;
+            const snapshot = await db.collection('users')
+                .where('classType', '==', 'FREE_PASS')
+                .where('approved', '==', true)
+                .get();
+
+            passReservedSeats = snapshot.docs.map(doc => ({
+                id: doc.data().id,
+                seat: doc.data().passSeat
+            }));
         }
 
         async function loadMyInfo() {
@@ -107,6 +175,7 @@
                 const classSelect = document.getElementById('user-class-select');
                 const noticeText = document.getElementById('class-notice-text');
 
+                // 오버부킹 방지 비활성화 처리
                 if (user.approved && total > 0 && total <= used) {
                     submitBtn.disabled = true;
                     submitBtn.className = "nav-btn btn-disabled";
@@ -121,6 +190,7 @@
                     classSelect.disabled = false;
                 }
 
+                // 내 예약 내역 로드
                 const snapshot = await db.collection('bookings').where('userId', '==', myId).get();
                 const list = document.getElementById('my-booking-list');
                 list.innerHTML = '';
@@ -129,57 +199,292 @@
 
                 if (myBookings.length === 0) {
                     list.innerHTML = '<tr><td colspan="4">예약 내역이 없습니다.</td></tr>';
-                    return;
+                } else {
+                    myBookings.sort((a, b) => a.date.localeCompare(b.date));
+                    const currentHour = now.getHours();
+
+                    myBookings.forEach(b => {
+                        const tr = document.createElement('tr');
+                        let statusBtnHTML = '';
+
+                        if (b.date < todayStr) {
+                            statusBtnHTML = `<span style="background:#cbd5e1; color:#475569; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">사용완료</span>`;
+                        } else if (b.date > todayStr) {
+                            statusBtnHTML = `<button onclick="cancelBooking('${b.docId}', ${b.hours || 5})" class="nav-btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;">예약 취소</button>`;
+                        } else {
+                            const timeStr = b.time || '';
+                            let startHour = 0, endHour = 24;
+
+                            if (timeStr.includes("10:00 - 14:00")) { startHour = 10; endHour = 14; }
+                            else if (timeStr.includes("14:00 - 18:00")) { startHour = 14; endHour = 18; }
+                            else if (timeStr.includes("18:00 - 22:00")) { startHour = 18; endHour = 22; }
+                            else if (timeStr.includes("19:00 - 23:00")) { startHour = 19; endHour = 23; }
+
+                            if (currentHour >= startHour && currentHour < endHour) {
+                                statusBtnHTML = `<span style="background:#dcfce7; color:#15803d; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">사용중</span>`;
+                            } else if (currentHour >= endHour) {
+                                statusBtnHTML = `<span style="background:#cbd5e1; color:#475569; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">사용완료</span>`;
+                            } else {
+                                statusBtnHTML = `<button onclick="cancelBooking('${b.docId}', ${b.hours || 5})" class="nav-btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;">예약 취소</button>`;
+                            }
+                        }
+
+                        tr.innerHTML = `
+                            <td>${b.date}</td>
+                            <td>${b.time}</td>
+                            <td><strong style="color:#2563eb;">${b.seat}</strong></td>
+                            <td>${statusBtnHTML}</td>
+                        `;
+                        list.appendChild(tr);
+                    });
                 }
 
-                myBookings.sort((a, b) => a.date.localeCompare(b.date));
-
-                const now = new Date();
-                const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-                const currentHour = now.getHours();
-
-                myBookings.forEach(b => {
-                    const tr = document.createElement('tr');
-                    let statusBtnHTML = '';
-
-                    if (b.date < todayStr) {
-                        statusBtnHTML = `<span style="background:#cbd5e1; color:#475569; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">사용완료</span>`;
-                    } else if (b.date > todayStr) {
-                        statusBtnHTML = `<button onclick="cancelBooking('${b.docId}', ${b.hours || 5})" class="nav-btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;">예약 취소</button>`;
-                    } else {
-                        const timeStr = b.time || '';
-                        let startHour = 0, endHour = 24;
-
-                        if (timeStr.includes("10:00 - 14:00")) { startHour = 10; endHour = 14; }
-                        else if (timeStr.includes("14:00 - 18:00")) { startHour = 14; endHour = 18; }
-                        else if (timeStr.includes("18:00 - 22:00")) { startHour = 18; endHour = 22; }
-                        else if (timeStr.includes("19:00 - 23:00")) { startHour = 19; endHour = 23; }
-
-                        if (currentHour >= startHour && currentHour < endHour) {
-                            statusBtnHTML = `<span style="background:#dcfce7; color:#15803d; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">사용중</span>`;
-                        } else if (currentHour >= endHour) {
-                            statusBtnHTML = `<span style="background:#cbd5e1; color:#475569; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">사용완료</span>`;
-                        } else {
-                            statusBtnHTML = `<button onclick="cancelBooking('${b.docId}', ${b.hours || 5})" class="nav-btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;">예약 취소</button>`;
-                        }
-                    }
-
-                    tr.innerHTML = `
-                        <td>${b.date}</td>
-                        <td>${b.time}</td>
-                        <td><strong style="color:#2563eb;">${b.seat}</strong></td>
-                        <td>${statusBtnHTML}</td>
-                    `;
-                    list.appendChild(tr);
-                });
+                await renderResCal();
 
             } catch (err) {
                 console.error("MyPage Error:", err);
-                document.getElementById('my-booking-list').innerHTML = `<tr><td colspan="4" style="color:red;">내역 로딩 오류: ${err.message}</td></tr>`;
             }
         }
 
-        // 신청 클래스 이력(Array) 업데이트 및 제출 로직
+        async function renderResCal() {
+            await fetchPassSeats();
+            document.getElementById('res-month-title').textContent = `${year}년 ${month + 1}월`;
+            const cal = document.getElementById('res-calendar');
+            cal.innerHTML = '';
+            
+            ['일','월','화','수','목','금','토'].forEach(h => cal.appendChild(Object.assign(document.createElement('div'), {className:'calendar-day-header', textContent:h})));
+
+            const first = new Date(year, month, 1).getDay();
+            const last = new Date(year, month + 1, 0).getDate();
+
+            const myId = String(session.id).trim();
+
+            if (db) {
+                try {
+                    const startStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+                    const endStr = `${year}-${String(month + 1).padStart(2, '0')}-31`;
+                    const snapshot = await db.collection('bookings')
+                        .where('date', '>=', startStr)
+                        .where('date', '<=', endStr)
+                        .get();
+                    monthBookingsCache = snapshot.docs.map(d => d.data());
+                } catch(e) {}
+            }
+
+            for(let i = 0; i < first; i++) cal.appendChild(Object.assign(document.createElement('div'), {className:'calendar-day-cell empty'}));
+
+            for(let d = 1; d <= last; d++) {
+                const dateStr = `${year}-${String(month + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                const dayOfWeek = new Date(year, month, d).getDay();
+                const totalCap = ((dayOfWeek === 0 || dayOfWeek === 6) ? 3 : 1) * 4;
+                
+                const dayBookings = monthBookingsCache.filter(b => b.date === dateStr);
+                const count = dayBookings.length;
+                const myCount = dayBookings.filter(b => String(b.userId).trim() === myId).length;
+
+                const cell = document.createElement('div');
+                cell.className = 'calendar-day-cell';
+                if (selDate === dateStr) cell.classList.add('selected');
+                if (dateStr === todayStr) cell.classList.add('is-today');
+
+                // 💜 내가 예약한 날짜는 보라색 테두리로 강조 표시
+                if (myCount > 0) {
+                    cell.classList.add('my-reserved-day');
+                }
+
+                let badgeHTML = '';
+                if (myCount > 0) {
+                    badgeHTML = `<span class="day-status-badge my-badge">내 예약 ${myCount}건</span>`;
+                } else if (count >= totalCap) {
+                    badgeHTML = `<span class="day-status-badge full">매진</span>`;
+                } else if (count > 0) {
+                    badgeHTML = `<span class="day-status-badge reserved">${count}/${totalCap} 완료</span>`;
+                } else {
+                    badgeHTML = `<span class="day-status-badge available">여유</span>`;
+                }
+
+                cell.innerHTML = `
+                    <span class="day-number">${d}</span>
+                    ${badgeHTML}
+                `;
+                
+                cell.onclick = () => {
+                    document.querySelectorAll('#res-calendar .calendar-day-cell').forEach(c => c.classList.remove('selected'));
+                    cell.classList.add('selected');
+                    selDate = dateStr;
+                    selTime = '';
+                    selSeat = '';
+                    document.getElementById('confirm-btn').disabled = true;
+                    document.getElementById('res-title').textContent = `${selDate} 예약`;
+                    
+                    const timeSel = document.getElementById('time-select');
+                    timeSel.disabled = false;
+                    const isWeekend = (dayOfWeek % 6 === 0);
+                    const slots = isWeekend ? ["10:00 - 14:00 (주말 1부)", "14:00 - 18:00 (주말 2부)", "18:00 - 22:00 (주말 3부)"] : ["19:00 - 23:00 (평일 야간)"];
+                    timeSel.innerHTML = '<option value="">시간 선택</option>' + slots.map(s => `<option value="${s}">${s}</option>`).join('');
+                    
+                    resetSeats();
+                    showDaySeatDetailsMyPage(dateStr, slots);
+                };
+                cal.appendChild(cell);
+            }
+        }
+
+        function showDaySeatDetailsMyPage(dateStr, slots) {
+            const title = document.getElementById('detail-title');
+            const container = document.getElementById('detail-slots');
+            title.textContent = `📌 ${dateStr} 좌석별 예약 현황`;
+            container.innerHTML = '';
+
+            const myId = String(session.id).trim();
+
+            slots.forEach(slot => {
+                const slotBookings = monthBookingsCache.filter(b => b.date === dateStr && b.time === slot);
+                const slotBox = document.createElement('div');
+                slotBox.style.marginBottom = '12px';
+
+                let seatCardsHTML = '';
+                ["M01", "M02", "M03", "M04"].forEach(seat => {
+                    const booked = slotBookings.find(b => b.seat === seat);
+                    if (booked) {
+                        const isMine = (String(booked.userId).trim() === myId);
+                        seatCardsHTML += `
+                            <div style="background:${isMine ? '#f3e8ff' : '#fef3c7'}; border:1px solid ${isMine ? '#a855f7' : '#f59e0b'}; padding:8px; border-radius:6px; font-size:0.8rem; text-align:center;">
+                                <strong style="color:${isMine ? '#7e22ce' : '#b45309'};">${seat} ${isMine ? '(내 예약)' : ''}</strong><br>
+                                <span style="font-weight:bold; color:#1e293b;">${booked.userName}</span><br>
+                                <span style="color:#64748b; font-size:0.75rem;">(${booked.userId})</span>
+                            </div>`;
+                    } else {
+                        seatCardsHTML += `
+                            <div style="background:#f1f5f9; border:1px solid #cbd5e1; padding:8px; border-radius:6px; font-size:0.8rem; text-align:center; color:#94a3b8;">
+                                <strong>${seat}</strong><br>
+                                <span>(빈 자리)</span>
+                            </div>`;
+                    }
+                });
+
+                slotBox.innerHTML = `
+                    <h5 style="font-size:0.85rem; margin-bottom:6px; color:#334155;">⏰ ${slot}</h5>
+                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:8px;">
+                        ${seatCardsHTML}
+                    </div>
+                `;
+                container.appendChild(slotBox);
+            });
+        }
+
+        function resetSeats() {
+            seatBtns.forEach(btn => {
+                btn.classList.remove('selected', 'taken', 'pass-reserved');
+                btn.disabled = true;
+            });
+        }
+
+        async function updateSeatButtons() {
+            if(!selDate || !selTime || !db) return;
+            const snapshot = await db.collection('bookings')
+                .where('date', '==', selDate)
+                .where('time', '==', selTime)
+                .get();
+
+            const taken = snapshot.docs.map(doc => doc.data().seat);
+
+            const myId = String(session.id).trim();
+            const myUserDoc = await db.collection('users').doc(myId).get();
+            const myData = myUserDoc.exists ? myUserDoc.data() : {};
+
+            seatBtns.forEach(btn => {
+                const s = btn.dataset.seat;
+                btn.classList.remove('selected', 'taken', 'pass-reserved');
+                
+                const passOwner = passReservedSeats.find(p => p.seat === s);
+                
+                if (taken.includes(s)) {
+                    btn.classList.add('taken');
+                    btn.disabled = true;
+                } else if (passOwner && passOwner.id !== myId && myData.classType !== 'FREE_PASS') {
+                    btn.classList.add('pass-reserved');
+                    btn.title = "자유이용권 전용 지정좌석입니다.";
+                    btn.disabled = true;
+                } else {
+                    btn.disabled = false;
+                }
+            });
+        }
+
+        document.getElementById('time-select').onchange = async (e) => {
+            selTime = e.target.value;
+            selSeat = '';
+            document.getElementById('confirm-btn').disabled = true;
+            if(!selTime) {
+                resetSeats();
+                return;
+            }
+            await updateSeatButtons();
+        };
+
+        seatBtns.forEach(btn => {
+            btn.onclick = () => {
+                if(btn.classList.contains('taken') || btn.classList.contains('pass-reserved')) return;
+                seatBtns.forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                selSeat = btn.dataset.seat;
+                document.getElementById('confirm-btn').disabled = false;
+            };
+        });
+
+        document.getElementById('confirm-btn').onclick = async () => {
+            const confirmBtn = document.getElementById('confirm-btn');
+            confirmBtn.disabled = true;
+
+            const myId = String(session.id).trim();
+            const userRef = db.collection('users').doc(myId);
+            const userDoc = await userRef.get();
+            if (!userDoc.exists) return;
+
+            const userData = userDoc.data();
+            const total = Number(userData.totalHours || 0);
+            const used = Number(userData.usedHours || 0);
+
+            if (total <= used) {
+                alert('사용시간이 만료되었습니다.');
+                confirmBtn.disabled = false;
+                return;
+            }
+
+            const duplicateCheck = await db.collection('bookings')
+                .where('date', '==', selDate)
+                .where('time', '==', selTime)
+                .where('seat', '==', selSeat)
+                .get();
+
+            if (!duplicateCheck.empty) {
+                alert('이미 다른 회원이 예약한 좌석입니다. 다른 좌석을 선택해 주세요.');
+                await updateSeatButtons();
+                return;
+            }
+
+            await db.collection('bookings').add({
+                userId: myId,
+                userName: session.name || '',
+                date: selDate,
+                time: selTime,
+                seat: selSeat,
+                hours: 5,
+                createdAt: new Date()
+            });
+
+            await userRef.update({ usedHours: used + 5 });
+
+            alert(`[예약 완료]\n일시: ${selDate} / ${selTime}\n좌석: ${selSeat}`);
+            
+            selSeat = '';
+            location.reload();
+        };
+
+        document.getElementById('res-prev-btn').onclick = () => { month--; if(month < 0){ month = 11; year--; } renderResCal(); };
+        document.getElementById('res-next-btn').onclick = () => { month++; if(month > 11){ month = 0; year++; } renderResCal(); };
+
         async function requestClassChange() {
             const classVal = document.getElementById('user-class-select').value;
             const passSeat = document.getElementById('pass-seat-select').value;
@@ -200,7 +505,6 @@
             const userDoc = await db.collection('users').doc(myId).get();
             const currentData = userDoc.exists ? userDoc.data() : {};
 
-            // 📜 이력 배열 누적 관리
             const history = currentData.classHistory || [];
             history.push(classVal);
 
@@ -233,14 +537,13 @@
                     });
                 }
 
-                alert('예약이 성공적으로 취소되고 시간이 복구되었습니다.');
-                loadMyInfo();
+                alert('예약이 취소되고 시간이 복구되었습니다.');
+                location.reload();
             } catch (err) {
                 alert(`예약 취소 오류: ${err.message}`);
             }
         }
 
-        // 🛑 관리자 이력 표시용 Soft Delete 회원 탈퇴
         async function deleteAccount() {
             if (!confirm('정말로 탈퇴하시겠습니까? 데이터가 처리되며 관리자 목록에 탈퇴 상태로 기록됩니다.')) return;
             try {

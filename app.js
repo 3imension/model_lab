@@ -1,3 +1,6 @@
+// ========================================================
+// MOLAB - Firebase Cloud Firestore 설정 및 초기화
+// ========================================================
 const firebaseConfig = {
     apiKey: "AIzaSyDkP5efJB5qvfs1zT8YGzHNLOdYxNRna0E",
     authDomain: "model-lab-52a15.firebaseapp.com",
@@ -20,14 +23,9 @@ try {
     console.error("Firebase 초기화 에러:", e);
 }
 
-// 📌 브라우저/기기별 타임존 오차 없는 로컬 YYYY-MM-DD 생성 함수
-function getLocalDateString(dateObj = new Date()) {
-    const y = dateObj.getFullYear();
-    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-    const d = String(dateObj.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-}
-
+// ========================================================
+// 세션 및 상단 헤더 동적 내비게이션
+// ========================================================
 function getCurrentUser() {
     try {
         return JSON.parse(localStorage.getItem('ml_session'));
@@ -47,10 +45,7 @@ function renderHeaderNav() {
         if (session.id === '3imension') {
             navHtml += `<a href="admin.html" class="nav-btn btn-primary">관리자 페이지</a>`;
         } else {
-            navHtml += `<a href="mypage.html" class="nav-btn btn-secondary">내 정보</a>`;
-            if (session.approved) {
-                navHtml += `<a href="reservation.html" class="nav-btn btn-primary">좌석 예약</a>`;
-            }
+            navHtml += `<a href="mypage.html" class="nav-btn btn-primary">내 정보 & 좌석 예약</a>`;
         }
         navHtml += `<button onclick="logout()" class="nav-btn btn-danger" style="margin-left:8px;">로그아웃</button>`;
         nav.innerHTML = navHtml;

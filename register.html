@@ -66,11 +66,8 @@
             msgDiv.textContent = '';
 
             try {
-                if (!db) {
-                    throw new Error("데이터베이스 연결에 실패했습니다. app.js 설정을 확인해 주세요.");
-                }
+                if (!db) throw new Error("DB 연결 실패");
 
-                // 관리자 ID 예약어 검사
                 if (id === '3imension') {
                     isIdChecked = false;
                     msgDiv.style.color = 'red';
@@ -94,14 +91,13 @@
                 }
             } catch (err) {
                 console.error("ID Check Error:", err);
-                alert(`아이디 중복 확인 중 오류 발생:\n${err.message}`);
+                alert(`중복 확인 에러:\n${err.message}`);
             } finally {
                 checkBtn.disabled = false;
                 checkBtn.textContent = '중복 확인';
             }
         };
 
-        // 아이디 입력창을 수정하면 중복 확인 상태 초기화
         document.getElementById('reg-id').oninput = () => {
             isIdChecked = false;
             document.getElementById('id-check-msg').textContent = '';
@@ -132,10 +128,11 @@
                     classType: '미지정',
                     totalHours: 0,
                     usedHours: 0,
+                    classHistory: [],
                     createdAt: new Date()
                 });
 
-                alert('회원가입 신청이 완료되었습니다.\n공방장의 승인 후 로그인이 가능합니다.');
+                alert('회원가입 신청이 완료되었습니다.\n마이페이지에서 원하시는 클래스를 선택하신 후 승인을 기다려 주세요.');
                 window.location.href = 'login.html';
             } catch (err) {
                 console.error("Register Error:", err);

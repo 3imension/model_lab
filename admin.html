@@ -39,7 +39,7 @@
                 </div>
             </div>
 
-            <!-- 2. 변경된 9개 열 구조의 회원 목록 -->
+            <!-- 2. 회원 목록 -->
             <h3 style="margin-bottom: 15px;">2. 회원 목록 및 클래스 승인 관리</h3>
             <table class="admin-table" style="margin-bottom: 30px;">
                 <thead>
@@ -262,7 +262,7 @@
                 let userClass = getClassTitle(userObj.classType);
                 if(userObj.passSeat) userClass += `(${userObj.passSeat})`;
 
-                // 🛑 탈퇴 회원 빨간색 표시
+                // 🛑 탈퇴 회원 빨간색 표기
                 let displayUserIdHTML = b.userId;
                 if (userObj.isDeleted) {
                     displayUserIdHTML = `<strong style="color:#ef4444;">${b.userId}(탈퇴)</strong>`;
@@ -302,24 +302,21 @@
                     const usedCount = Math.floor(used / 5);
                     const totalCount = Math.floor(total / 5);
 
-                    // 가입일자 포맷
                     let regDateStr = '-';
                     if (u.createdAt) {
                         const dateObj = u.createdAt.toDate ? u.createdAt.toDate() : new Date(u.createdAt);
                         regDateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
                     }
 
-                    // 1) 신청 클래스 이력 포맷 (History)
                     let historyHTML = '-';
                     if (u.classHistory && Array.isArray(u.classHistory) && u.classHistory.length > 0) {
                         historyHTML = u.classHistory.map(c => getClassTitle(c)).join(' → ');
                     }
 
-                    // 2) 현재 클래스 포맷
                     let currentClassHTML = getClassTitle(u.classType);
                     if(u.passSeat) currentClassHTML += `<br><span style="font-size:0.75rem; color:#2563eb;">(${u.passSeat} 지정)</span>`;
 
-                    // 3) 🛑 아이디(탈퇴) 빨간색 표기 및 상태 버튼
+                    // 🛑 아이디(탈퇴) 빨간색 표기
                     let displayIdHTML = `<strong>${u.id}</strong>`;
                     let statusBadgeHTML = `<span class="badge-status ${u.approved ? 'approved' : 'pending'}">${u.approved ? '승인완료' : '승인대기'}</span>`;
                     let actionBtnHTML = '';
@@ -474,7 +471,7 @@
         }
 
         document.getElementById('admin-prev-btn').onclick = () => { adminMonth--; if(adminMonth<0){adminMonth=11; adminYear--;} renderAdminCalendar(); };
-        document.getElementById('admin-next-btn').onclick = () => { adminMonth++; if(adminMonth>11){adminMonth=0; adminYear--;} renderAdminCalendar(); };
+        document.getElementById('admin-next-btn').onclick = () => { adminMonth++; if(adminMonth>11){adminMonth=0; adminYear++;} renderAdminCalendar(); };
 
         document.addEventListener('DOMContentLoaded', () => {
             loadNoticeImageAdmin();

@@ -43,7 +43,7 @@
         const now = new Date();
         let year = now.getFullYear();
         let month = now.getMonth();
-        const todayStr = getLocalDateString();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
         function loadNoticeImage() {
             if(!db) return;
