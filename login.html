@@ -2,8 +2,9 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 로그인</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=2.7">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -65,18 +66,14 @@
                     throw new Error("비밀번호가 일치하지 않습니다.");
                 }
 
-                if (!userData.approved) {
-                    throw new Error("아직 공방장의 가입/클래스 승인이 완료되지 않았습니다.");
-                }
-
+                // 🔓 회원가입 승인 검사 제거 -> 가입 후 즉시 로그인 가능
                 localStorage.setItem('ml_session', JSON.stringify(userData));
                 alert(`${userData.name}님 환영합니다!`);
-                window.location.href = 'index.html';
+                window.location.href = 'mypage.html';
 
             } catch (err) {
                 console.error("Login Error:", err);
                 errorMsg.textContent = err.message;
-                alert(`[로그인 오류]\n${err.message}`);
                 submitBtn.disabled = false;
                 submitBtn.textContent = '로그인';
             }
