@@ -2,8 +2,10 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - Plastic model & 3D Printing Studio NOWON Goneung</title>
-    <link rel="stylesheet" href="style.css">
+    <!-- 캐시 갱신을 위해 ?v=1.1 추가 -->
+    <link rel="stylesheet" href="style.css?v=1.1">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -125,7 +127,7 @@
         }
 
         document.getElementById('prev-btn').onclick = () => { month--; if (month < 0) { month = 11; year--; } renderMainCalendar(); };
-        document.getElementById('next-btn').onclick = () => { month++; if (month > 11) { month = 0; year++; } renderMainCalendar(); };
+        document.getElementById('next-btn').onclick = () => { month++; if (month > 11) { month = 0; year--; } renderMainCalendar(); };
         
         document.addEventListener('DOMContentLoaded', () => {
             loadNoticeImage();
