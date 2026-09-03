@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 관리자 페이지</title>
-    <link rel="stylesheet" href="style.css?v=3.4">
+    <link rel="stylesheet" href="style.css?v=3.5">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -40,9 +40,9 @@
                 </div>
             </div>
 
-            <!-- 2. 회원 목록 및 클래스 직접 변경 승인 -->
+            <!-- 2. 회원 목록 및 클래스 직접 부여/승인 -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
-                <h3 style="margin: 0;">2. 회원 목록 및 클래스 승인/직접 변경 관리</h3>
+                <h3 style="margin: 0;">2. 회원 목록 및 클래스 승인 관리</h3>
                 
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <label style="font-size: 0.85rem; font-weight: bold;">회원 정렬:</label>
@@ -64,10 +64,10 @@
                             <th>실명</th>
                             <th>연락처</th>
                             <th style="width:18%;">신청 클래스 이력</th>
-                            <th style="width:22%;">현재 이용 클래스 직접 부여/변경</th>
+                            <th style="width:20%;">현재 이용 클래스</th>
                             <th>사용시간</th>
                             <th>승인 상태</th>
-                            <th>시간 재승인</th>
+                            <th>재승인</th>
                         </tr>
                     </thead>
                     <tbody id="admin-user-list"></tbody>
@@ -344,7 +344,6 @@
                     historyDropdownHTML += `</select>`;
                 }
 
-                // 🎯 관리자가 회원별 클래스를 직접 지정/변경할 수 있는 드롭다운 메뉴
                 let currentClassSelectHTML = `
                     <select onchange="adminChangeUserClass('${u.id}', this.value)" style="font-size:0.8rem; font-weight:bold; padding:4px;">
                         <option value="미지정" ${u.classType === '미지정' ? 'selected' : ''}>미지정</option>
@@ -367,17 +366,22 @@
                 }
 
                 let displayIdHTML = `<strong>${u.id}</strong>`;
-                let statusBadgeHTML = `<span class="badge-status ${u.approved ? 'approved' : 'pending'}">${u.approved ? '승인완료' : '승인대기'}</span>`;
+                
+                // 🛑 OK / NO 표기로 변경
+                let statusBadgeHTML = u.approved ? 
+                    `<span style="color:#15803d; font-weight:800; font-size:0.9rem;">OK</span>` : 
+                    `<span style="color:#d97706; font-weight:800; font-size:0.9rem;">NO</span>`;
+
                 let actionBtnHTML = '';
 
                 if (u.isDeleted) {
                     displayIdHTML = `<strong style="color:#ef4444;">${u.id}(탈퇴)</strong>`;
-                    statusBadgeHTML = `<span style="background:#fecdd3; color:#991b1b; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold;">탈퇴 회원</span>`;
-                    actionBtnHTML = `<span style="color:#94a3b8; font-size:0.8rem;">처리 불가</span>`;
+                    statusBadgeHTML = `<span style="color:#ef4444; font-weight:800; font-size:0.85rem;">탈퇴</span>`;
+                    actionBtnHTML = `<span style="color:#94a3b8; font-size:0.8rem;">-</span>`;
                 } else {
                     actionBtnHTML = `
-                        ${!u.approved ? `<button onclick="approveUser('${u.id}')" class="nav-btn btn-success" style="padding:4px 8px;">승인하기</button>` : ''}
-                        ${isExpired || u.approved ? `<button onclick="reApproveUser('${u.id}')" class="nav-btn btn-primary" style="padding:4px 8px; margin-top:2px;">시간 재승인</button>` : ''}
+                        ${!u.approved ? `<button onclick="approveUser('${u.id}')" class="nav-btn btn-success" style="padding:4px 8px;">승인</button>` : ''}
+                        ${isExpired || u.approved ? `<button onclick="reApproveUser('${u.id}')" class="nav-btn btn-primary" style="padding:4px 8px; margin-top:2px;">재승인</button>` : ''}
                     `;
                 }
 
@@ -526,7 +530,7 @@
             alert(`${userId} 회원의 클래스 신청이 승인되었습니다.`);
         }
 
-        // 🎯 관리자가 회원 클래스를 직접 부여 및 변경
+        // 🎯 관리자 클래스 지정 시 총 제공시간 자동 세팅
         async function adminChangeUserClass(userId, classVal) {
             let total = 0;
             if (classVal === 'BASIC_1') total = 5;
@@ -557,7 +561,7 @@
             }
 
             await db.collection('users').doc(userId).update(updateData);
-            alert(`${userId} 회원의 클래스가 [${getClassTitle(classVal)}] (으)로 직접 부여/승인되었습니다.`);
+            alert(`${userId} 회원의 클래스가 [${getClassTitle(classVal)}] (으)로 지정되었습니다.`);
         }
 
         async function adminChangePassSeat(userId, passSeatVal) {

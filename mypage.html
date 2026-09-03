@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 내 정보 및 좌석 예약</title>
-    <link rel="stylesheet" href="style.css?v=3.4">
+    <link rel="stylesheet" href="style.css?v=3.5">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -39,7 +39,7 @@
                 </table>
             </div>
 
-            <!-- 🧡 2. 이용 클래스 현황 (선택/버튼 삭제, 타이틀 강조 표기) -->
+            <!-- 🧡 2. 이용 클래스 현황 -->
             <div style="background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); border: 2px solid #f97316; padding: 22px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 4px 12px rgba(249, 115, 22, 0.08);">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
                     <h2 style="font-size: 1.25rem; color: #c2410c; margin:0;">
@@ -49,7 +49,6 @@
 
                 <table class="admin-table" style="margin-bottom: 18px; background: #ffffff; border-radius:8px; overflow:hidden;">
                     <tr>
-                        <!-- 🎯 크고 명확하게 노출되는 현재 이용 중 클래스 -->
                         <th style="background:#fff7ed; color:#9a3412; width:25%;">현재 이용중인 클래스</th>
                         <td id="my-class" style="font-weight:bold; font-size:1.15rem; color:#ea580c; text-align:left; padding-left:15px;">-</td>
                         <th style="background:#fff7ed; color:#9a3412; width:20%;">승인 상태</th>
@@ -97,14 +96,13 @@
                 </div>
             </div>
 
-            <!-- 💚 4. 내 좌석 예약 내역 목록 (소팅 드롭다운 + 스크롤바 적용) -->
+            <!-- 💚 4. 내 좌석 예약 내역 목록 -->
             <div style="background: #ecfdf5; border: 2px solid #10b981; padding: 22px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.06);">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; flex-wrap:wrap; gap:10px;">
                     <h2 style="font-size: 1.2rem; color: #047857; margin:0;">
                         4. 내 좌석 예약 내역 목록
                     </h2>
 
-                    <!-- 🎯 정렬 메뉴 드롭다운 -->
                     <div style="display:flex; align-items:center; gap:6px;">
                         <label style="font-size:0.8rem; font-weight:bold; color:#065f46;">정렬 기준:</label>
                         <select id="my-booking-sort" onchange="renderMyBookingsList()" style="font-size:0.8rem; padding:4px 8px; border-color:#6ee7b7; border-radius:6px; background:#fff;">
@@ -117,7 +115,6 @@
 
                 <p style="font-size:0.8rem; color:#059669; margin-bottom:12px;">* 개별 예약 취소 시 사용 시간이 즉시 복구됩니다 (예약일 1일 전까지 변경/취소 가능).</p>
                 
-                <!-- 스크롤바 박스 -->
                 <div style="max-height: 380px; overflow-y: auto; border: 1px solid #a7f3d0; border-radius: 8px;">
                     <table class="admin-table" style="margin-top: 0; background:#ffffff; border:none;">
                         <thead style="position:sticky; top:0; z-index:5; background:#d1fae5;">
@@ -157,12 +154,6 @@
         let monthBookingsCache = [];
         let currentUserData = {};
         let rawMyBookingsList = [];
-
-        function togglePassSeatSelect() {
-            const classVal = document.getElementById('user-class-select')?.value;
-            const seatSelect = document.getElementById('pass-seat-select');
-            if (seatSelect) seatSelect.style.display = (classVal === 'FREE_PASS') ? 'inline-block' : 'none';
-        }
 
         function getClassTitle(code) {
             const map = {
@@ -301,7 +292,8 @@
                 if(currentUserData.passSeat) classText += ` (${currentUserData.passSeat} 전용)`;
                 document.getElementById('my-class').textContent = classText;
                 
-                document.getElementById('my-status').textContent = currentUserData.approved ? '승인 완료' : (currentUserData.classType === '미지정' ? '미신청' : '승인 대기중');
+                document.getElementById('my-status').textContent = currentUserData.approved ? 'OK' : 'NO';
+                document.getElementById('my-status').style.color = currentUserData.approved ? '#16a34a' : '#d97706';
                 
                 const total = Number(currentUserData.totalHours || 0);
                 const used = Number(currentUserData.usedHours || 0);
@@ -481,6 +473,24 @@
 
             const actionBar = document.getElementById('booking-action-bar');
             const summaryText = document.getElementById('booking-summary-text');
+            const confirmBtn = document.getElementById('confirm-btn');
+
+            const total = Number(currentUserData.totalHours || 0);
+            const used = Number(currentUserData.usedHours || 0);
+
+            // 🛑 사용시간 만료 시 버튼 비활성화 (알림창 안 뜸)
+            if (total <= used || !currentUserData.approved) {
+                confirmBtn.disabled = true;
+                confirmBtn.className = "nav-btn btn-disabled";
+                confirmBtn.style.background = "#94a3b8";
+                confirmBtn.textContent = total <= used ? "이용시간 만료로 예약불가" : "승인 대기중";
+            } else {
+                confirmBtn.disabled = false;
+                confirmBtn.className = "nav-btn btn-primary";
+                confirmBtn.style.background = "#7c3aed";
+                confirmBtn.textContent = "선택한 좌석 예약 확정하기";
+            }
+
             summaryText.textContent = `👉 선택 내역: ${selDate} / ${selTime} / ${selSeat} 좌석`;
             actionBar.style.display = 'block';
         }
@@ -500,15 +510,9 @@
             const total = Number(userData.totalHours || 0);
             const used = Number(userData.usedHours || 0);
 
-            if (!userData.approved) {
-                alert('공방장(관리자)의 승인이 완료되지 않았습니다.');
-                confirmBtn.disabled = false;
-                return;
-            }
-
-            if (total <= used) {
-                alert('사용시간이 모두 만료되었습니다.');
-                confirmBtn.disabled = false;
+            // 알림 없이 조용히 리턴
+            if (!userData.approved || total <= used) {
+                confirmBtn.disabled = true;
                 return;
             }
 
