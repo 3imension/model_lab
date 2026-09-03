@@ -40,19 +40,19 @@
                 </div>
             </div>
 
-            <!-- 2. 회원 관리 -->
+            <!-- 2. 회원 관리 (새로운 클래스 옵션 및 승인) -->
             <h3 style="margin-bottom: 15px;">2. 회원 가입 / 클래스 부여 / 시간 재승인 관리</h3>
             <table class="admin-table" style="margin-bottom: 30px;">
                 <thead>
                     <tr>
                         <th>아이디</th><th>실명</th><th>연락처</th><th>이용/총 시간</th>
-                        <th>승인상태</th><th>클래스 설정</th><th>처리 / 재승인</th>
+                        <th>승인상태</th><th>클래스 / 자유이용권 설정</th><th>처리 / 재승인</th>
                     </tr>
                 </thead>
                 <tbody id="admin-user-list"></tbody>
             </table>
 
-            <!-- 3. 위치 상단으로 이동된 캘린더 및 일별 좌석 배치도 -->
+            <!-- 3. 위치 상단으로 이동된 캘린더 현황판 -->
             <div style="border-top: 2px dashed #e2e8f0; padding-top: 25px; margin-bottom: 35px;">
                 <h3 style="margin-bottom: 15px;">3. 월간 캘린더 및 일자별 좌석 현황</h3>
                 <div class="calendar-nav-header">
@@ -69,11 +69,10 @@
                 </div>
             </div>
 
-            <!-- 4. 전체 회원 예약 현황 + 드롭다운 다중 Sorting 기능 -->
+            <!-- 4. 전체 회원 예약 현황 -->
             <div style="border-top: 2px dashed #e2e8f0; padding-top: 25px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                     <h3 style="margin: 0;">4. 전체 회원 예약 현황</h3>
-                    <!-- 🎛️ Sorting 정렬 컨트롤 박스 -->
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <label style="font-size: 0.85rem; font-weight: bold;">정렬 기준:</label>
                         <select id="sort-key-select" onchange="applyBookingSort()" style="width: 140px; padding: 6px; font-size: 0.85rem;">
@@ -187,7 +186,6 @@
             alert('이미지가 삭제되었습니다.');
         }
 
-        // 상태 코드/텍스트 반환 함수
         function getBookingStatusInfo(dateStr, timeStr) {
             const now = new Date();
             const todayStr = now.toISOString().split('T')[0];
@@ -215,7 +213,6 @@
             }
         }
 
-        // 드롭다운 Sorting 및 테이블 출력
         function applyBookingSort() {
             const sortKey = document.getElementById('sort-key-select').value;
             const sortOrder = document.getElementById('sort-order-select').value;
@@ -244,7 +241,9 @@
 
             list.forEach(b => {
                 const statusInfo = getBookingStatusInfo(b.date, b.time || '');
-                const userClass = cachedUsersMap[b.userId]?.classType || '미지정';
+                const userObj = cachedUsersMap[b.userId] || {};
+                let userClass = userObj.classType || '미지정';
+                if(userObj.passSeat) userClass += `(${userObj.passSeat})`;
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
@@ -263,7 +262,6 @@
         function listenAdminData() {
             if(!db) return;
 
-            // 회원 데이터 연동 및 매핑
             db.collection('users').onSnapshot(snapshot => {
                 const userList = document.getElementById('admin-user-list');
                 userList.innerHTML = '';
@@ -284,16 +282,24 @@
                         <td>${used} / ${total}시간 ${isExpired ? '<br><b style="color:#ef4444; font-size:0.75rem;">[만료됨]</b>' : ''}</td>
                         <td><span class="badge-status ${u.approved ? 'approved' : 'pending'}">${u.approved ? '승인완료' : '대기중'}</span></td>
                         <td>
-                            <select onchange="updateClass('${u.id}', this.value)">
+                            <select onchange="updateUserClassAdmin('${u.id}', this.value)">
                                 <option value="미지정" ${u.classType === '미지정' ? 'selected':''}>미지정</option>
-                                <option value="BASIC_4" ${u.classType === 'BASIC_4' ? 'selected':''}>BASIC (월4회/16시간)</option>
-                                <option value="BASIC_8" ${u.classType === 'BASIC_8' ? 'selected':''}>BASIC (월8회/32시간)</option>
-                                <option value="BASIC_16" ${u.classType === 'BASIC_16' ? 'selected':''}>BASIC (월16회/64시간)</option>
-                                <option value="CREATOR" ${u.classType === 'CREATOR' ? 'selected':''}>CREATOR (월8회/32시간)</option>
+                                <option value="BASIC_1" ${u.classType === 'BASIC_1' ? 'selected':''}>BASIC (1회/5시간)</option>
+                                <option value="BASIC_4" ${u.classType === 'BASIC_4' ? 'selected':''}>BASIC (월4회/20시간)</option>
+                                <option value="BASIC_8" ${u.classType === 'BASIC_8' ? 'selected':''}>BASIC (월8회/40시간)</option>
+                                <option value="BASIC_16" ${u.classType === 'BASIC_16' ? 'selected':''}>BASIC (월16회/80시간)</option>
+                                <option value="FREE_PASS" ${u.classType === 'FREE_PASS' ? 'selected':''}>월 자유이용권</option>
+                                <option value="CREATOR" ${u.classType === 'CREATOR' ? 'selected':''}>CREATOR (월8회/40시간)</option>
                             </select>
+                            ${u.classType === 'FREE_PASS' ? `
+                                <select style="margin-top:4px;" onchange="updatePassSeatAdmin('${u.id}', this.value)">
+                                    <option value="M01" ${u.passSeat === 'M01' ? 'selected':''}>M01 전용</option>
+                                    <option value="M03" ${u.passSeat === 'M03' ? 'selected':''}>M03 전용</option>
+                                </select>
+                            ` : ''}
                         </td>
                         <td>
-                            ${!u.approved ? `<button onclick="approveUser('${u.id}')" class="nav-btn btn-success">승인하기</button>` : ''}
+                            ${!u.approved ? `<button onclick="approveUser('${u.id}')" class="nav-btn btn-success">클래스 승인</button>` : ''}
                             ${isExpired ? `<button onclick="reApproveUser('${u.id}')" class="nav-btn btn-primary" style="margin-top:2px;">시간 재승인</button>` : ''}
                             ${u.approved && !isExpired ? '<span style="color:#16a34a; font-weight:bold;">정상 이용중</span>' : ''}
                         </td>
@@ -304,7 +310,6 @@
                 applyBookingSort();
             });
 
-            // 예약 내역 실시간 리스너
             db.collection('bookings').onSnapshot(snapshot => {
                 cachedBookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 applyBookingSort();
@@ -398,7 +403,7 @@
 
         async function approveUser(userId) {
             await db.collection('users').doc(userId).update({ approved: true });
-            alert(`${userId} 회원이 승인되었습니다.`);
+            alert(`${userId} 회원의 클래스 신청이 승인되었습니다.`);
         }
 
         async function reApproveUser(userId) {
@@ -407,14 +412,24 @@
             alert(`${userId} 회원의 시간이 재승인되었습니다.`);
         }
 
-        async function updateClass(userId, classVal) {
+        async function updateUserClassAdmin(userId, classVal) {
             let total = 0;
-            if(classVal === 'BASIC_4') total = 16;
-            else if(classVal === 'BASIC_8' || classVal === 'CREATOR') total = 32;
-            else if(classVal === 'BASIC_16') total = 64;
+            if (classVal === 'BASIC_1') total = 5;
+            else if (classVal === 'BASIC_4') total = 20;
+            else if (classVal === 'BASIC_8' || classVal === 'CREATOR') total = 40;
+            else if (classVal === 'BASIC_16') total = 80;
+            else if (classVal === 'FREE_PASS') total = 720;
 
-            await db.collection('users').doc(userId).update({ classType: classVal, totalHours: total });
-            alert('클래스 정보가 업데이트되었습니다.');
+            const updateData = { classType: classVal, totalHours: total };
+            if (classVal === 'FREE_PASS') updateData.passSeat = 'M01'; // 기본 M01 부여
+
+            await db.collection('users').doc(userId).update(updateData);
+            alert('회원 클래스 설정이 수정되었습니다.');
+        }
+
+        async function updatePassSeatAdmin(userId, seatVal) {
+            await db.collection('users').doc(userId).update({ passSeat: seatVal });
+            alert(`자유이용권 지정좌석이 ${seatVal}로 수정되었습니다.`);
         }
 
         document.getElementById('admin-prev-btn').onclick = () => { adminMonth--; if(adminMonth<0){adminMonth=11; adminYear--;} renderAdminCalendar(); };

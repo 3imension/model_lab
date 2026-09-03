@@ -29,6 +29,32 @@
                 <tr><th>총 제공 시간</th><td id="my-total">-</td><th>사용 / 잔여 시간</th><td id="my-remain">-</td></tr>
             </table>
 
+            <!-- 🎯 클래스 신청 및 변경 영역 (회원이 직접 선택 후 관리자 승인) -->
+            <div style="background: #f8fafc; border: 1px solid #cbd5e1; padding: 16px; border-radius: 8px; margin-bottom: 25px;">
+                <h3 style="font-size: 1rem; margin-bottom: 10px; color: #1e293b;">📋 이용 클래스 신청 / 변경</h3>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                    <select id="user-class-select" style="max-width: 320px;" onchange="togglePassSeatSelect()">
+                        <option value="">클래스를 선택하세요</option>
+                        <option value="BASIC_1">BASIC (1회 / 5시간)</option>
+                        <option value="BASIC_4">BASIC (월 4회 / 20시간)</option>
+                        <option value="BASIC_8">BASIC (월 8회 / 40시간)</option>
+                        <option value="BASIC_16">BASIC (월 16회 / 80시간)</option>
+                        <option value="FREE_PASS">월 자유이용권 (M01/M03 전용좌석)</option>
+                        <option value="CREATOR">CREATOR (월 8회 / 40시간)</option>
+                    </select>
+
+                    <!-- 자유이용권 선택 시 M01, M03 선택창 노출 -->
+                    <select id="pass-seat-select" style="max-width: 180px; display: none;">
+                        <option value="">전용좌석 선택</option>
+                        <option value="M01">M01 좌석 지정</option>
+                        <option value="M03">M03 좌석 지정</option>
+                    </select>
+
+                    <button onclick="requestClassChange()" class="nav-btn btn-primary">클래스 신청하기</button>
+                </div>
+                <p style="font-size: 0.8rem; color: #64748b; margin-top: 8px;">* 신청 후 공방장(관리자)의 승인을 받으면 예약을 진행하실 수 있습니다.</p>
+            </div>
+
             <h3>내 좌석 예약 내역</h3>
             <table class="admin-table" style="margin-top: 10px;">
                 <thead><tr><th>예약 날짜</th><th>시간대</th><th>좌석</th><th>상태 / 취소</th></tr></thead>
@@ -47,6 +73,12 @@
         const session = getCurrentUser();
         if (!session) { alert('로그인이 필요합니다.'); window.location.href = 'login.html'; }
 
+        function togglePassSeatSelect() {
+            const classVal = document.getElementById('user-class-select').value;
+            const seatSelect = document.getElementById('pass-seat-select');
+            seatSelect.style.display = (classVal === 'FREE_PASS') ? 'inline-block' : 'none';
+        }
+
         async function loadMyInfo() {
             try {
                 if (!db) return;
@@ -59,8 +91,12 @@
                 document.getElementById('my-id').textContent = user.id || '-';
                 document.getElementById('my-phone').textContent = user.phone || '-';
                 document.getElementById('my-email').textContent = user.email || '-';
-                document.getElementById('my-class').textContent = user.classType || '미지정';
-                document.getElementById('my-status').textContent = user.approved ? '승인 완료' : '승인 대기';
+                
+                let classText = user.classType || '미지정';
+                if(user.passSeat) classText += ` (${user.passSeat} 전용)`;
+                document.getElementById('my-class').textContent = classText;
+                
+                document.getElementById('my-status').textContent = user.approved ? '승인 완료' : '승인 대기중';
                 
                 const total = Number(user.totalHours || 0);
                 const used = Number(user.usedHours || 0);
@@ -69,6 +105,7 @@
                 document.getElementById('my-total').textContent = `${total} 시간`;
                 document.getElementById('my-remain').textContent = `${used} 시간 사용 / ${remain} 시간 남음`;
 
+                // 예약 내역 조회
                 const snapshot = await db.collection('bookings').get();
                 const list = document.getElementById('my-booking-list');
                 list.innerHTML = '';
@@ -77,7 +114,6 @@
                 const searchName = String(user.name || '').trim().toLowerCase();
 
                 const myBookings = [];
-
                 snapshot.docs.forEach(doc => {
                     const data = doc.data();
                     const bUserId = String(data.userId || '').trim().toLowerCase();
@@ -103,13 +139,11 @@
                     const tr = document.createElement('tr');
                     let statusBtnHTML = '';
 
-                    // 실시간 사용중 / 이용완료 / 예약중 판별 로직
                     if (b.date < todayStr) {
                         statusBtnHTML = `<span style="background:#cbd5e1; color:#475569; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">사용완료</span>`;
                     } else if (b.date > todayStr) {
-                        statusBtnHTML = `<button onclick="cancelBooking('${b.docId}', ${b.hours || 4})" class="nav-btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;">예약 취소</button>`;
+                        statusBtnHTML = `<button onclick="cancelBooking('${b.docId}', ${b.hours || 5})" class="nav-btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;">예약 취소</button>`;
                     } else {
-                        // 오늘 날짜인 경우 시간대 비교
                         const timeStr = b.time || '';
                         let startHour = 0, endHour = 24;
 
@@ -119,12 +153,11 @@
                         else if (timeStr.includes("19:00 - 23:00")) { startHour = 19; endHour = 23; }
 
                         if (currentHour >= startHour && currentHour < endHour) {
-                            // 현재 시각이 해당 시간대에 포함되면 [사용중] 표기
                             statusBtnHTML = `<span style="background:#dcfce7; color:#15803d; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">사용중</span>`;
                         } else if (currentHour >= endHour) {
                             statusBtnHTML = `<span style="background:#cbd5e1; color:#475569; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">사용완료</span>`;
                         } else {
-                            statusBtnHTML = `<button onclick="cancelBooking('${b.docId}', ${b.hours || 4})" class="nav-btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;">예약 취소</button>`;
+                            statusBtnHTML = `<button onclick="cancelBooking('${b.docId}', ${b.hours || 5})" class="nav-btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;">예약 취소</button>`;
                         }
                     }
 
@@ -141,6 +174,36 @@
                 console.error("MyPage Error:", err);
                 document.getElementById('my-booking-list').innerHTML = `<tr><td colspan="4" style="color:red;">내역 로딩 오류: ${err.message}</td></tr>`;
             }
+        }
+
+        // 회원이 직접 클래스 신청하기
+        async function requestClassChange() {
+            const classVal = document.getElementById('user-class-select').value;
+            const passSeat = document.getElementById('pass-seat-select').value;
+
+            if (!classVal) return alert('신청할 클래스를 선택해 주세요.');
+            if (classVal === 'FREE_PASS' && !passSeat) {
+                return alert('자유이용권은 M01 또는 M03 좌석을 반드시 선택해야 합니다.');
+            }
+
+            let total = 0;
+            if (classVal === 'BASIC_1') total = 5;
+            else if (classVal === 'BASIC_4') total = 20;
+            else if (classVal === 'BASIC_8' || classVal === 'CREATOR') total = 40;
+            else if (classVal === 'BASIC_16') total = 80;
+            else if (classVal === 'FREE_PASS') total = 720; // 무제한
+
+            const myId = String(session.id).trim();
+            await db.collection('users').doc(myId).update({
+                classType: classVal,
+                passSeat: classVal === 'FREE_PASS' ? passSeat : null,
+                totalHours: total,
+                usedHours: 0,
+                approved: false // 신청 시 승인대기로 변경 후 관리자가 승인
+            });
+
+            alert('클래스 신청이 완료되었습니다.\n공방장(관리자)의 승인 후 예약을 진행하실 수 있습니다.');
+            location.reload();
         }
 
         async function cancelBooking(docId, hoursToRefund) {
