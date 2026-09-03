@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 관리자 페이지</title>
-    <link rel="stylesheet" href="style.css?v=2.5">
+    <link rel="stylesheet" href="style.css?v=2.6">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -460,16 +460,18 @@
             alert(`${userId} 회원의 클래스 신청이 승인되었습니다.`);
         }
 
-        // 🛑 재승인 시 취소/승인 플래그 완벽 초기화로 회원이 새로 신청하도록 변경
+        // 🛑 재승인 시 기존 클래스 정보 및 취소 플래그 완전 리셋
         async function reApproveUser(userId) {
-            if(!confirm(`${userId} 회원의 사용시간 및 승인을 초기화하시겠습니까?\n재승인 시 회원이 마이페이지에서 새로운 클래스를 다시 선택/신청할 수 있게 됩니다.`)) return;
+            if(!confirm(`${userId} 회원의 사용시간 및 클래스 상태를 리셋하시겠습니까?\n재승인 시 회원이 마이페이지에서 새로운 클래스를 다시 선택/신청할 수 있게 됩니다.`)) return;
             await db.collection('users').doc(userId).update({ 
                 usedHours: 0,
                 totalHours: 0,
+                classType: "미지정",
+                passSeat: null,
                 approved: false,
                 isCanceled: false
             });
-            alert(`${userId} 회원의 시간이 성공적으로 초기화되었습니다. 회원이 마이페이지에서 새 클래스를 신청하도록 안내해주세요.`);
+            alert(`${userId} 회원의 클래스가 리셋되었습니다. 회원이 마이페이지에서 새 클래스를 신청할 수 있습니다.`);
         }
 
         document.getElementById('admin-prev-btn').onclick = () => { adminMonth--; if(adminMonth<0){adminMonth=11; adminYear--;} renderAdminCalendar(); };

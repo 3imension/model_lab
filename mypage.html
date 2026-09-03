@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 내 정보 및 좌석 예약</title>
-    <link rel="stylesheet" href="style.css?v=2.5">
+    <link rel="stylesheet" href="style.css?v=2.6">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -235,7 +235,7 @@
                 if(currentUserData.passSeat) classText += ` (${currentUserData.passSeat} 전용)`;
                 document.getElementById('my-class').textContent = classText;
                 
-                document.getElementById('my-status').textContent = currentUserData.approved ? '승인 완료' : '승인 대기중';
+                document.getElementById('my-status').textContent = currentUserData.approved ? '승인 완료' : (currentUserData.classType === '미지정' ? '미신청' : '승인 대기중');
                 
                 const total = Number(currentUserData.totalHours || 0);
                 const used = Number(currentUserData.usedHours || 0);
@@ -252,6 +252,7 @@
                     historyElem.textContent = '신청 이력이 없습니다.';
                 }
 
+                // 컨트롤 버튼 상태 동적 분기
                 const submitBtn = document.getElementById('class-submit-btn');
                 const cancelBtn = document.getElementById('class-cancel-btn');
                 const classSelect = document.getElementById('user-class-select');
@@ -259,12 +260,14 @@
                 const refundNotice = document.getElementById('refund-notice-box');
 
                 if (currentUserData.isCanceled) {
+                    // 회원이 중도 취소한 경우
                     submitBtn.style.display = "none";
                     cancelBtn.style.display = "none";
                     classSelect.disabled = true;
                     noticeText.style.display = "none";
                     refundNotice.style.display = "block";
                 } else if (currentUserData.approved && total > 0 && used < total) {
+                    // 승인완료 후 이용 중
                     submitBtn.style.display = "inline-block";
                     submitBtn.disabled = true;
                     submitBtn.className = "nav-btn btn-success";
@@ -272,9 +275,11 @@
                     cancelBtn.style.display = "inline-block";
                     classSelect.disabled = true;
                     refundNotice.style.display = "none";
+                    noticeText.style.display = "block";
                     noticeText.textContent = "현재 클래스 이용이 정상 승인되어 사용 중입니다. 취소 또는 만료 후 변경 가능합니다.";
                     noticeText.style.color = "#16a34a";
                 } else if (currentUserData.approved && total > 0 && total <= used) {
+                    // 이용시간만료
                     submitBtn.style.display = "inline-block";
                     submitBtn.disabled = true;
                     submitBtn.className = "nav-btn btn-disabled";
@@ -283,10 +288,11 @@
                     cancelBtn.style.display = "none";
                     classSelect.disabled = true;
                     refundNotice.style.display = "none";
+                    noticeText.style.display = "block";
                     noticeText.textContent = "이용 제공 시간이 모두 만료되어 더 이상 예약이 불가능합니다. 관리자의 재승인을 받으세요.";
                     noticeText.style.color = "#dc2626";
                 } else {
-                    // 미승인 또는 관리자 재승인 완료 상태 (신청 버튼 정상 활성화)
+                    // 미신청 / 미승인 / 관리자 재승인 완료 상태 (새로 신청 가능)
                     submitBtn.style.display = "inline-block";
                     submitBtn.disabled = false;
                     submitBtn.className = "nav-btn btn-primary";
@@ -587,14 +593,14 @@
             location.reload();
         }
 
-        // 🛑 클래스 중도 취소 시 미사용(미래) 예약 일괄 삭제 처리
+        // 🛑 클래스 취소 시 미사용(미래) 예약 일괄 자동 삭제
         async function cancelCurrentClass() {
-            if (!confirm('정말로 현재 클래스 이용을 취소하시겠습니까?\n취소 시 아직 도착하지 않은 미사용 예약들이 모두 자동 취소됩니다.')) return;
+            if (!confirm('정말로 현재 클래스 이용을 취소하시겠습니까?\n취소 시 오늘 이후에 잡혀있는 미사용 예약들이 일괄 자동 취소 삭제됩니다.')) return;
 
             try {
                 const myId = String(session.id).trim();
                 
-                // 오늘 이후 미사용 예약 일괄 조회 및 삭제
+                // 오늘 포함 미래의 예약건 자동 삭제
                 const snapshot = await db.collection('bookings')
                     .where('userId', '==', myId)
                     .where('date', '>=', todayStr)
@@ -606,13 +612,13 @@
                 });
                 await batch.commit();
 
-                // 회원 상태 업데이트
+                // 회원 상태 업데이트 (취소 기록)
                 await db.collection('users').doc(myId).update({
                     isCanceled: true,
                     approved: false
                 });
 
-                alert('현재 클래스 및 미사용 예약이 성공적으로 취소되었습니다.');
+                alert('현재 클래스 및 미사용 예약이 성공적으로 취소/삭제 되었습니다.');
                 location.reload();
             } catch (err) {
                 alert(`클래스 취소 에러: ${err.message}`);
