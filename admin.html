@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 관리자 페이지</title>
-    <link rel="stylesheet" href="style.css?v=3.1">
+    <link rel="stylesheet" href="style.css?v=3.2">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -40,8 +40,8 @@
                 </div>
             </div>
 
-            <!-- 2. 회원 목록 및 횟수 조정 -->
-            <h3 style="margin-bottom: 15px;">2. 회원 목록 및 클래스 승인 / 횟수 관리</h3>
+            <!-- 2. 회원 목록 -->
+            <h3 style="margin-bottom: 15px;">2. 회원 목록 및 클래스 승인 관리</h3>
             <table class="admin-table" style="margin-bottom: 30px;">
                 <thead>
                     <tr>
@@ -51,9 +51,9 @@
                         <th>연락처</th>
                         <th>신청 클래스 이력</th>
                         <th>현재 클래스</th>
-                        <th>사용/총 횟수</th>
+                        <th>사용시간</th>
                         <th>승인 상태</th>
-                        <th>처리 / 횟수 조정</th>
+                        <th>처리 / 시간 재승인</th>
                     </tr>
                 </thead>
                 <tbody id="admin-user-list"></tbody>
@@ -206,12 +206,12 @@
 
         function getClassTitle(code) {
             const map = {
-                'BASIC_1': 'BASIC (1회)',
-                'BASIC_4': 'BASIC (4회)',
-                'BASIC_8': 'BASIC (8회)',
-                'BASIC_16': 'BASIC (16회)',
+                'BASIC_1': 'BASIC (1회/5시간)',
+                'BASIC_4': 'BASIC (4회/20시간)',
+                'BASIC_8': 'BASIC (8회/40시간)',
+                'BASIC_16': 'BASIC (16회/80시간)',
                 'FREE_PASS': '자유이용권',
-                'CREATOR': 'CREATOR (8회)'
+                'CREATOR': 'CREATOR (8회/40시간)'
             };
             return map[code] || code || '미지정';
         }
@@ -277,9 +277,12 @@
                     if (u.id === '3imension') return;
                     cachedUsersMap[u.id] = u;
 
-                    const totalCount = Number(u.totalCount || 0);
-                    const usedCount = Number(u.usedCount || 0);
-                    const isExpired = u.approved && (totalCount <= usedCount);
+                    const total = Number(u.totalHours || 0);
+                    const used = Number(u.usedHours || 0);
+                    const isExpired = u.approved && (total <= used);
+
+                    const usedCount = Math.floor(used / 5);
+                    const totalCount = Math.floor(total / 5);
 
                     let regDateStr = '-';
                     if (u.createdAt) {
@@ -306,9 +309,7 @@
                     } else {
                         actionBtnHTML = `
                             ${!u.approved ? `<button onclick="approveUser('${u.id}')" class="nav-btn btn-success">클래스 승인</button>` : ''}
-                            ${isExpired || u.approved ? `<button onclick="reApproveUser('${u.id}')" class="nav-btn btn-primary" style="margin-top:2px;">회수 재승인/리셋</button>` : ''}
-                            <button onclick="adjustCountDirect('${u.id}', 1)" class="nav-btn btn-secondary" style="padding:2px 6px; font-size:0.75rem; margin-top:2px;">+1회</button>
-                            <button onclick="adjustCountDirect('${u.id}', -1)" class="nav-btn btn-secondary" style="padding:2px 6px; font-size:0.75rem; margin-top:2px;">-1회</button>
+                            ${isExpired || u.approved ? `<button onclick="reApproveUser('${u.id}')" class="nav-btn btn-primary" style="margin-top:2px;">시간 재승인</button>` : ''}
                         `;
                     }
 
@@ -321,7 +322,8 @@
                         <td style="font-size:0.78rem; color:#64748b; max-width:180px; word-break:break-all;">${historyHTML}</td>
                         <td><span style="font-size:0.82rem; font-weight:bold; color:#1e293b;">${currentClassHTML}</span></td>
                         <td>
-                            <b>${usedCount}회 / ${totalCount}회</b>
+                            <b>${usedCount}회 / ${totalCount}회</b><br>
+                            <span style="font-size:0.75rem; color:#64748b;">(${used}h / ${total}h)</span>
                             ${isExpired && !u.isDeleted ? '<br><b style="color:#ef4444; font-size:0.75rem;">[만료됨]</b>' : ''}
                         </td>
                         <td>${statusBadgeHTML}</td>
@@ -441,27 +443,15 @@
         }
 
         async function reApproveUser(userId) {
-            if(!confirm(`${userId} 회원의 이용 횟수를 리셋하시겠습니까?\n재승인 시 회원이 마이페이지에서 새로운 클래스를 다시 선택/신청할 수 있게 됩니다.`)) return;
+            if(!confirm(`${userId} 회원의 사용시간 및 승인을 초기화하시겠습니까?\n재승인 시 회원이 마이페이지에서 새로운 클래스를 다시 선택/신청할 수 있게 됩니다.`)) return;
             await db.collection('users').doc(userId).update({ 
-                usedCount: 0,
-                totalCount: 0,
+                usedHours: 0,
+                totalHours: 0,
                 classType: "미지정",
                 passSeat: null,
                 approved: false
             });
-            alert(`${userId} 회원의 이용 상태가 초기화되었습니다.`);
-        }
-
-        // 수동 횟수 조정 (+1회, -1회)
-        async function adjustCountDirect(userId, delta) {
-            const userRef = db.collection('users').doc(userId);
-            const userDoc = await userRef.get();
-            if (!userDoc.exists) return;
-
-            const currentTotal = Number(userDoc.data().totalCount || 0);
-            const newTotal = Math.max(0, currentTotal + delta);
-
-            await userRef.update({ totalCount: newTotal });
+            alert(`${userId} 회원의 시간이 성공적으로 초기화되었습니다.`);
         }
 
         document.getElementById('admin-prev-btn').onclick = () => { adminMonth--; if(adminMonth<0){adminMonth=11; adminYear--;} renderAdminCalendar(); };

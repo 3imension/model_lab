@@ -1,5 +1,5 @@
 // ========================================================
-// MOLAB - Firebase Cloud Firestore 설정 및 세션 처리
+// MOLAB - Firebase Cloud Firestore 설정 및 초기화
 // ========================================================
 const firebaseConfig = {
     apiKey: "AIzaSyDkP5efJB5qvfs1zT8YGzHNLOdYxNRna0E",
