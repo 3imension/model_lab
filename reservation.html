@@ -54,11 +54,10 @@
         const session = getCurrentUser();
         if (!session || !session.approved) { alert('승인된 회원만 이용 가능합니다.'); window.location.href = 'index.html'; }
 
-        // 현재 연도/월 및 오늘 날짜 동적 연동
         const now = new Date();
         let year = now.getFullYear();
         let month = now.getMonth();
-        const todayStr = now.toISOString().split('T')[0];
+        const todayStr = getLocalDateString();
 
         let selDate = '', selTime = '', selSeat = '';
         let passReservedSeats = [];
@@ -205,6 +204,7 @@
             };
         });
 
+        // 🛑 오버 부킹 방지 핵심 로직 적용
         document.getElementById('confirm-btn').onclick = async () => {
             const confirmBtn = document.getElementById('confirm-btn');
             confirmBtn.disabled = true;
@@ -217,9 +217,11 @@
             const userData = userDoc.data();
             const total = Number(userData.totalHours || 0);
             const used = Number(userData.usedHours || 0);
+            const remain = total - used;
 
-            if (total <= used) {
-                alert('사용시간이 만료되었습니다');
+            // 1회 예약 시 5시간 필요
+            if (remain < 5) {
+                alert('사용 가능한 시간이 부족하거나 만료되었습니다.\n마이페이지에서 클래스를 연장 신청해 주세요.');
                 confirmBtn.disabled = false;
                 return;
             }

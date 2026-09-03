@@ -1,6 +1,3 @@
-// ========================================================
-// MOLAB - Firebase Cloud Firestore 설정 및 초기화
-// ========================================================
 const firebaseConfig = {
     apiKey: "AIzaSyDkP5efJB5qvfs1zT8YGzHNLOdYxNRna0E",
     authDomain: "model-lab-52a15.firebaseapp.com",
@@ -23,9 +20,14 @@ try {
     console.error("Firebase 초기화 에러:", e);
 }
 
-// ========================================================
-// 세션 및 네비게이션 관리
-// ========================================================
+// 📌 브라우저/기기별 타임존 오차 없는 로컬 YYYY-MM-DD 생성 함수
+function getLocalDateString(dateObj = new Date()) {
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const d = String(dateObj.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
 function getCurrentUser() {
     try {
         return JSON.parse(localStorage.getItem('ml_session'));

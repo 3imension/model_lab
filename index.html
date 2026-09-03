@@ -40,13 +40,11 @@
 
     <script src="app.js"></script>
     <script>
-        // ⚡ 시스템의 현재 연도와 월을 동적으로 자동 세팅
         const now = new Date();
         let year = now.getFullYear();
         let month = now.getMonth();
-        const todayStr = now.toISOString().split('T')[0];
+        const todayStr = getLocalDateString();
 
-        // 이미지 캐싱 처리로 첫 로딩 최적화
         function loadNoticeImage() {
             if(!db) return;
             const cachedImg = sessionStorage.getItem('cached_notice_img');
@@ -88,7 +86,6 @@
                 grid.appendChild(Object.assign(document.createElement('div'), { className: 'calendar-day-cell empty' }));
             }
 
-            // ⚡ 로딩 최적화: 해당 월 범위 데이터만 선택 쿼리
             let bookings = [];
             if(db) {
                 try {
@@ -113,7 +110,6 @@
                 const cell = document.createElement('div');
                 cell.className = 'calendar-day-cell';
                 
-                // 오늘 날짜 자동 표기 적용
                 if (dateStr === todayStr) {
                     cell.classList.add('is-today');
                 }
