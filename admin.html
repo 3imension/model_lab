@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 관리자 페이지</title>
-    <link rel="stylesheet" href="style.css?v=3.5">
+    <link rel="stylesheet" href="style.css?v=3.6">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -366,8 +366,6 @@
                 }
 
                 let displayIdHTML = `<strong>${u.id}</strong>`;
-                
-                // 🛑 OK / NO 표기로 변경
                 let statusBadgeHTML = u.approved ? 
                     `<span style="color:#15803d; font-weight:800; font-size:0.9rem;">OK</span>` : 
                     `<span style="color:#d97706; font-weight:800; font-size:0.9rem;">NO</span>`;
@@ -530,7 +528,6 @@
             alert(`${userId} 회원의 클래스 신청이 승인되었습니다.`);
         }
 
-        // 🎯 관리자 클래스 지정 시 총 제공시간 자동 세팅
         async function adminChangeUserClass(userId, classVal) {
             let total = 0;
             if (classVal === 'BASIC_1') total = 5;
@@ -580,7 +577,7 @@
         }
 
         document.getElementById('admin-prev-btn').onclick = () => { adminMonth--; if(adminMonth<0){adminMonth=11; adminYear--;} renderAdminCalendar(); };
-        document.getElementById('admin-next-btn').onclick = () => { adminMonth++; if(adminMonth>11){adminMonth=0; adminYear++;} renderAdminCalendar(); };
+        document.getElementById('admin-next-btn').onclick = () => { adminMonth++; if(adminMonth>11){adminMonth=0; adminYear--;} renderAdminCalendar(); };
 
         document.addEventListener('DOMContentLoaded', () => {
             loadNoticeImageAdmin();
