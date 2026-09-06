@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 관리자 페이지</title>
-    <link rel="stylesheet" href="style.css?v=4.5">
+    <link rel="stylesheet" href="style.css?v=4.6">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -71,9 +71,9 @@
                 </table>
             </div>
 
-            <!-- 3. [통합 UI] 월간 달력 & 선택일 좌석 배정 및 승인 처리 -->
+            <!-- 3. [월간 달력 및 시간대/좌석 배정 통합 관리] -->
             <div style="border-top: 2px dashed #e2e8f0; padding-top: 25px; margin-bottom: 35px;">
-                <h3 style="margin-bottom: 15px; color:#1e40af;">3. 월간 달력 기반 일자별 좌석 직접 배정 & 예약 승인 처리</h3>
+                <h3 style="margin-bottom: 15px; color:#1e40af;">3. 월간 달력 기반 일자별/시간대별 좌석 배정 & 예약 승인 처리</h3>
                 
                 <div class="calendar-nav-header">
                     <button id="admin-prev-btn" class="nav-btn btn-secondary">&lt; 이전 달</button>
@@ -83,23 +83,23 @@
 
                 <div id="admin-calendar-grid" class="monthly-calendar-grid"></div>
 
-                <!-- 선택 날짜 통합 컨트롤 패널 -->
+                <!-- 선택 날짜 컨트롤 패널 -->
                 <div id="admin-day-detail" style="margin-top: 25px; padding: 20px; background: #eff6ff; border: 2px solid #3b82f6; border-radius: 10px;">
                     <h4 id="admin-detail-title" style="margin-bottom: 15px; font-size: 1.1rem; color: #1e3a8a;">
-                        📌 날짜를 클릭하면 해당 날짜의 좌석 배정 현황 및 승인 처리 테이블이 표시됩니다.
+                        📌 날짜를 클릭하면 해당 날짜의 시간대별 좌석 배정 현황 및 승인 처리 테이블이 표시됩니다.
                     </h4>
 
-                    <!-- 좌석 현황 요약 카드 -->
+                    <!-- 시간대별 좌석 카드 현황 -->
                     <div id="admin-detail-slots" style="margin-bottom: 20px;"></div>
 
-                    <!-- 해당 일자 신청 회원 배정 및 승인 처리 테이블 -->
+                    <!-- 일자별 신청 회원 배정 및 승인 표 -->
                     <div style="background:#ffffff; border-radius:8px; border:1px solid #bfdbfe; overflow:hidden;">
                         <table class="admin-table" style="margin-top:0; border:none;">
                             <thead>
                                 <tr style="background:#dbeafe; color:#1e40af;">
                                     <th>신청 회원(ID)</th>
                                     <th>예약 신청 날짜</th>
-                                    <th>시간대</th>
+                                    <th>신청/배정 시간대</th>
                                     <th>배정할 좌석 선택</th>
                                     <th>예약 승인 및 확정</th>
                                 </tr>
@@ -112,9 +112,9 @@
                 </div>
             </div>
 
-            <!-- 4. 회원별 예약 신청 / 승인 현황 목록 (단순 축소 출력) -->
+            <!-- 4. 회원별 예약/신청 전체 현황 (사용완료 표기 개선) -->
             <div style="border-top: 2px dashed #e2e8f0; padding-top: 25px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; justify-content: space-between; align- items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                     <h3 style="margin: 0;">4. 회원별 예약/신청 전체 현황</h3>
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <label style="font-size: 0.85rem; font-weight: bold;">필터:</label>
@@ -156,7 +156,7 @@
         let adminMonth = now.getMonth();
         const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
-        let selectedAdminDate = todayStr; // 기본 선택 오늘 날짜
+        let selectedAdminDate = todayStr;
         let cachedBookings = [];
         let cachedUsersMap = {};
         let rawUsersList = [];
@@ -218,7 +218,6 @@
             alert('이미지가 삭제되었습니다.');
         }
 
-        // 2. 회원 목록 렌더링
         function renderUserList() {
             const userListElem = document.getElementById('admin-user-list');
             if (!userListElem) return;
@@ -228,11 +227,8 @@
             let sortedUsers = [...rawUsersList];
 
             sortedUsers.sort((a, b) => {
-                if (sortKey === 'name') {
-                    return (a.name || '').localeCompare(b.name || '');
-                } else if (sortKey === 'id') {
-                    return (a.id || '').localeCompare(b.id || '');
-                }
+                if (sortKey === 'name') return (a.name || '').localeCompare(b.name || '');
+                if (sortKey === 'id') return (a.id || '').localeCompare(b.id || '');
                 return 0;
             });
 
@@ -247,15 +243,7 @@
                 const usedCount = Math.floor(used / 5);
                 const totalCount = Math.floor(total / 5);
 
-                let regDateStr = '-';
-                if (u.createdAt) {
-                    try {
-                        const dateObj = u.createdAt.toDate ? u.createdAt.toDate() : new Date(u.createdAt);
-                        regDateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
-                    } catch(e) {
-                        regDateStr = String(u.createdAt).substring(0, 10);
-                    }
-                }
+                let regDateStr = u.createdAt ? String(u.createdAt).substring(0, 10) : '-';
 
                 let historyDropdownHTML = '<span style="color:#94a3b8; font-size:0.8rem;">이력 없음</span>';
                 if (u.classHistory && Array.isArray(u.classHistory) && u.classHistory.length > 0) {
@@ -291,15 +279,13 @@
                     <td>${currentClassSelectHTML}</td>
                     <td><b>${usedCount}회 / ${totalCount}회</b><br><small style="color:#64748b;">(${used}h / ${total}h)</small></td>
                     <td>${statusBadgeHTML}</td>
-                    <td>
-                        <button onclick="approveUser('${u.id}')" class="nav-btn btn-success" style="padding:4px 8px;">승인/재승인</button>
-                    </td>
+                    <td><button onclick="approveUser('${u.id}')" class="nav-btn btn-success" style="padding:4px 8px;">승인/재승인</button></td>
                 `;
                 userListElem.appendChild(tr);
             });
         }
 
-        // 3. 통합 월간 캘린더 렌더링
+        // 3. 월간 캘린더 렌더링
         function renderAdminCalendar() {
             document.getElementById('admin-month-title').textContent = `${adminYear}년 ${adminMonth + 1}월`;
             const grid = document.getElementById('admin-calendar-grid');
@@ -321,6 +307,9 @@
                 const pendingBookings = cachedBookings.filter(b => (b.date === dateStr || b.changeRequestedDate === dateStr) && !b.approved);
 
                 const count = approvedBookings.length;
+                const dayOfWeek = new Date(adminYear, adminMonth, d).getDay();
+                const totalCap = ((dayOfWeek === 0 || dayOfWeek === 6) ? 3 : 1) * 4;
+
                 const cell = document.createElement('div');
                 cell.className = 'calendar-day-cell';
 
@@ -330,20 +319,16 @@
                 let badgeHTML = '';
                 if (pendingBookings.length > 0) {
                     badgeHTML = `<span class="day-status-badge reserved" style="background:#fef3c7; color:#b45309; font-weight:bold;">신청 ${pendingBookings.length}건</span>`;
-                } else if (count >= 4) {
-                    badgeHTML = `<span class="day-status-badge full">매진 (4/4)</span>`;
+                } else if (count >= totalCap) {
+                    badgeHTML = `<span class="day-status-badge full">매진 (${count}/${totalCap})</span>`;
                 } else if (count > 0) {
-                    badgeHTML = `<span class="day-status-badge available">${count}/4 확정</span>`;
+                    badgeHTML = `<span class="day-status-badge available">${count}/${totalCap} 확정</span>`;
                 } else {
                     badgeHTML = `<span class="day-status-badge available" style="color:#94a3b8;">여유</span>`;
                 }
 
-                cell.innerHTML = `
-                    <span class="day-number">${d}</span>
-                    ${badgeHTML}
-                `;
+                cell.innerHTML = `<span class="day-number">${d}</span>${badgeHTML}`;
 
-                // 달력 일자 클릭 시 컨트롤 패널 동기화
                 cell.onclick = () => {
                     document.querySelectorAll('#admin-calendar-grid .calendar-day-cell').forEach(c => c.classList.remove('selected'));
                     cell.classList.add('selected');
@@ -354,51 +339,61 @@
                 grid.appendChild(cell);
             }
 
-            // 기본 선택 날짜 갱신
             showDaySeatDetailsAndTable(selectedAdminDate);
         }
 
-        // 🎯 3번 통합 패널: 선택한 날짜의 좌석 현황 카드 + 좌석 배정 및 승인 표 출력
+        // 🎯 3번 주말 3종 시간대 지원 좌석 카드 + 승인 표 출력
         function showDaySeatDetailsAndTable(dateStr) {
             const title = document.getElementById('admin-detail-title');
             const slotsContainer = document.getElementById('admin-detail-slots');
             const tableBody = document.getElementById('admin-day-booking-table');
 
-            title.textContent = `📌 ${dateStr} 일자별 좌석 점유 현황 및 회원 예약 승인 처리`;
+            title.textContent = `📌 ${dateStr} 일자별/시간대별 좌석 점유 현황 및 회원 예약 승인 처리`;
 
-            // 1. 좌석 현황 카드 출력
+            const dayOfWeek = new Date(dateStr).getDay();
+            const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+            const slots = isWeekend ? ["10:00 - 14:00 (주말 1부)", "14:00 - 18:00 (주말 2부)", "18:00 - 22:00 (주말 3부)"] : ["19:00 - 23:00 (평일 야간)"];
+
             const dayApprovedBookings = cachedBookings.filter(b => (b.date === dateStr || b.changeRequestedDate === dateStr) && b.approved);
-            let seatCardsHTML = '';
 
-            ["M01", "M02", "M03", "M04"].forEach(seat => {
-                const booked = dayApprovedBookings.find(b => b.seat === seat);
-                if (booked) {
-                    const userObj = cachedUsersMap[booked.userId] || {};
-                    let displayId = booked.userId;
-                    if(userObj.isDeleted) displayId = `<span style="color:#ef4444; font-weight:bold;">${booked.userId}(탈퇴)</span>`;
+            // 1. 시간대별 좌석 현황 카드 출력
+            let slotsCardsHTML = '';
+            slots.forEach(slot => {
+                const slotBookings = dayApprovedBookings.filter(b => b.time === slot);
+                let seatCardsHTML = '';
 
-                    seatCardsHTML += `
-                        <div style="background:#fef3c7; border:2px solid #f59e0b; padding:12px; border-radius:8px; font-size:0.85rem; text-align:center;">
-                            <strong style="color:#b45309; font-size:0.95rem;">${seat} (예약확정)</strong><br>
-                            <span style="font-weight:bold; color:#1e293b; font-size:0.9rem;">${booked.userName || userObj.name || '-'}</span><br>
-                            <span style="font-size:0.75rem; color:#64748b;">(${displayId})</span>
-                        </div>`;
-                } else {
-                    seatCardsHTML += `
-                        <div style="background:#ffffff; border:1px dashed #cbd5e1; padding:12px; border-radius:8px; font-size:0.85rem; text-align:center; color:#94a3b8;">
-                            <strong>${seat}</strong><br>
-                            <span>(빈 자리)</span>
-                        </div>`;
-                }
+                ["M01", "M02", "M03", "M04"].forEach(seat => {
+                    const booked = slotBookings.find(b => b.seat === seat);
+                    if (booked) {
+                        const userObj = cachedUsersMap[booked.userId] || {};
+                        let displayId = booked.userId;
+                        if(userObj.isDeleted) displayId = `<span style="color:#ef4444; font-weight:bold;">${booked.userId}(탈퇴)</span>`;
+
+                        seatCardsHTML += `
+                            <div style="background:#fef3c7; border:2px solid #f59e0b; padding:10px; border-radius:8px; font-size:0.82rem; text-align:center;">
+                                <strong style="color:#b45309;">${seat} (확정)</strong><br>
+                                <span style="font-weight:bold; color:#1e293b;">${booked.userName || userObj.name || '-'}</span><br>
+                                <span style="font-size:0.75rem; color:#64748b;">(${displayId})</span>
+                            </div>`;
+                    } else {
+                        seatCardsHTML += `
+                            <div style="background:#ffffff; border:1px dashed #cbd5e1; padding:10px; border-radius:8px; font-size:0.82rem; text-align:center; color:#94a3b8;">
+                                <strong>${seat}</strong><br>
+                                <span>(빈 자리)</span>
+                            </div>`;
+                    }
+                });
+
+                slotsCardsHTML += `
+                    <div style="margin-bottom:12px;">
+                        <div style="font-weight:bold; font-size:0.88rem; color:#1e3a8a; margin-bottom:6px;">⏰ ${slot}</div>
+                        <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px;">${seatCardsHTML}</div>
+                    </div>`;
             });
 
-            slotsContainer.innerHTML = `
-                <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px;">
-                    ${seatCardsHTML}
-                </div>
-            `;
+            slotsContainer.innerHTML = slotsCardsHTML;
 
-            // 2. 선택한 날짜의 예약 신청건 처리 테이블 출력
+            // 2. 신청건 승인 테이블 출력 (시간대 세분화 지정 가능)
             const dayAllBookings = cachedBookings.filter(b => (b.date === dateStr || b.changeRequestedDate === dateStr));
             tableBody.innerHTML = '';
 
@@ -413,6 +408,19 @@
                 const isPast = targetDate < todayStr;
                 const tr = document.createElement('tr');
 
+                // 주말인 경우 시간대 선택 드롭다운 생성
+                let timeSelectHTML = '';
+                if (isWeekend) {
+                    timeSelectHTML = `
+                        <select id="time-select-${b.id}" ${isApproved || isPast ? 'disabled' : ''} style="padding:6px; font-size:0.8rem; border-color:#93c5fd;">
+                            <option value="10:00 - 14:00 (주말 1부)" ${b.time.includes('주말 1부') ? 'selected' : ''}>10:00 - 14:00 (주말 1부)</option>
+                            <option value="14:00 - 18:00 (주말 2부)" ${b.time.includes('주말 2부') ? 'selected' : ''}>14:00 - 18:00 (주말 2부)</option>
+                            <option value="18:00 - 22:00 (주말 3부)" ${b.time.includes('주말 3부') ? 'selected' : ''}>18:00 - 22:00 (주말 3부)</option>
+                        </select>`;
+                } else {
+                    timeSelectHTML = `<span style="font-size:0.85rem; font-weight:bold;">${b.time || '19:00 - 23:00 (평일 야간)'}</span>`;
+                }
+
                 let btnHTML = '';
                 if (isPast) {
                     btnHTML = `<button class="nav-btn" disabled style="padding:6px 14px; background:#94a3b8; color:#ffffff; cursor:default;">사용완료 (${b.seat || 'M01'})</button>`;
@@ -425,7 +433,7 @@
                 tr.innerHTML = `
                     <td><b>${b.userName || '-'}</b> (${b.userId})</td>
                     <td><strong style="color:#2563eb;">${targetDate}</strong> ${b.status === 'CHANGE_REQUESTED' ? '<span style="color:#ef4444; font-size:0.75rem;">(변경요청)</span>' : ''}</td>
-                    <td>${b.time || '19:00 - 23:00 (평일 야간)'}</td>
+                    <td>${timeSelectHTML}</td>
                     <td>
                         <select id="seat-select-${b.id}" ${isApproved || isPast ? 'disabled' : ''} style="padding:6px; font-weight:bold; border-color:#93c5fd;">
                             <option value="M01" ${b.seat === 'M01' ? 'selected' : ''}>M01 좌석 지정</option>
@@ -444,24 +452,29 @@
             const seatSelect = document.getElementById(`seat-select-${bookingId}`);
             const selectedSeat = seatSelect.value;
 
-            // 좌석 중복 검사
-            const dupCheck = cachedBookings.find(b => b.id !== bookingId && b.date === targetDate && b.seat === selectedSeat && b.approved);
+            // 주말 시간대 지정 여부 확인
+            const timeSelect = document.getElementById(`time-select-${bookingId}`);
+            const selectedTime = timeSelect ? timeSelect.value : "19:00 - 23:00 (평일 야간)";
+
+            // 좌석 및 시간대 중복 검사
+            const dupCheck = cachedBookings.find(b => b.id !== bookingId && b.date === targetDate && b.time === selectedTime && b.seat === selectedSeat && b.approved);
             if (dupCheck) {
-                return alert(`선택하신 [${selectedSeat}] 좌석은 ${targetDate} 날짜에 이미 승인된 다른 예약이 있습니다.`);
+                return alert(`선택하신 [${selectedTime} / ${selectedSeat}] 좌석은 ${targetDate} 날짜에 이미 승인된 다른 예약이 있습니다.`);
             }
 
             await db.collection('bookings').doc(bookingId).update({
                 date: targetDate,
+                time: selectedTime,
                 seat: selectedSeat,
                 approved: true,
                 status: 'APPROVED',
                 changeRequestedDate: null
             });
 
-            alert(`[예약 확정 완료]\n날짜: ${targetDate}\n배정 좌석: ${selectedSeat}`);
+            alert(`[예약 확정 완료]\n날짜: ${targetDate}\n시간: ${selectedTime}\n배정 좌석: ${selectedSeat}`);
         }
 
-        // 4. 회원별 예약/신청 전체 현황 축소 출력
+        // 🛑 4번 회원별 예약 현황 (과거 날짜 사용완료 표기 적용)
         function renderAllBookingsList() {
             const listElem = document.getElementById('admin-all-booking-list');
             if (!listElem) return;
@@ -483,10 +496,16 @@
             sortedList.forEach(b => {
                 const tr = document.createElement('tr');
                 const userObj = cachedUsersMap[b.userId] || {};
+                const isPast = (b.date < todayStr);
                 
-                let statusText = b.approved ? 
-                    `<span style="color:#15803d; font-weight:bold;">승인완료</span>` : 
-                    `<span style="color:#d97706; font-weight:bold;">승인대기</span>`;
+                let statusText = '';
+                if (isPast) {
+                    statusText = `<span style="background:#cbd5e1; color:#475569; padding:3px 8px; border-radius:4px; font-weight:bold; font-size:0.8rem;">사용완료</span>`;
+                } else if (b.approved) {
+                    statusText = `<span style="background:#dcfce7; color:#15803d; padding:3px 8px; border-radius:4px; font-weight:bold; font-size:0.8rem;">승인완료</span>`;
+                } else {
+                    statusText = `<span style="background:#fef9c3; color:#a16207; padding:3px 8px; border-radius:4px; font-weight:bold; font-size:0.8rem;">승인대기</span>`;
+                }
 
                 tr.innerHTML = `
                     <td><b>${b.userName || userObj.name || '-'}</b> (${b.userId})</td>
