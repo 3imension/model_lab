@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 관리자 페이지</title>
-    <link rel="stylesheet" href="style.css?v=4.3">
+    <link rel="stylesheet" href="style.css?v=4.4">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -71,9 +71,21 @@
                 </table>
             </div>
 
-            <!-- 3. 회원 예약 신청건 좌석 직접 배정 및 승인 처리 -->
+            <!-- 3. 회원 예약 신청건 좌석 직접 배정 및 승인 처리 (드롭다운 필터 추가) -->
             <div style="border-top: 2px dashed #e2e8f0; padding-top: 25px; margin-bottom: 35px;">
-                <h3 style="margin-bottom: 15px; color:#1e40af;">3. 회원 예약 신청건 좌석 직접 배정 및 예약 승인 처리</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                    <h3 style="margin: 0; color:#1e40af;">3. 회원 예약 신청건 좌석 직접 배정 및 예약 승인 처리</h3>
+                    
+                    <!-- 🎯 승인 대기 / 전체 / 승인완료 필터 드롭다운 메뉴 -->
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <label style="font-size: 0.85rem; font-weight: bold; color:#1e40af;">예약 필터:</label>
+                        <select id="pending-filter-key" onchange="renderPendingBookings()" style="font-size: 0.85rem; padding: 6px 10px; border: 2px solid #3b82f6; border-radius: 6px; background: #fff; font-weight: bold; color: #1e40af;">
+                            <option value="pendingOnly">승인 대기건만 보기 (우선)</option>
+                            <option value="all">전체 신청/승인건 보기</option>
+                            <option value="approvedOnly">승인 완료건만 보기</option>
+                        </select>
+                    </div>
+                </div>
                 
                 <div style="max-height: 380px; overflow-y: auto; border: 1px solid #bfdbfe; border-radius: 8px; margin-bottom:20px;">
                     <table class="admin-table" style="margin-top:0; border:none;">
@@ -183,7 +195,7 @@
             alert('이미지가 삭제되었습니다.');
         }
 
-        // 2. 회원 목록 안전 렌더링
+        // 2. 회원 목록 렌더링
         function renderUserList() {
             const userListElem = document.getElementById('admin-user-list');
             if (!userListElem) return;
@@ -264,20 +276,32 @@
             });
         }
 
-        // 3. 회원 예약 신청건 좌석 배정 및 승인 렌더링
+        // 3. 회원 예약 신청건 좌석 배정 및 승인 렌더링 (드롭다운 소팅 필터 적용)
         function renderPendingBookings() {
             const listElem = document.getElementById('admin-pending-booking-list');
             if (!listElem) return;
             listElem.innerHTML = '';
 
-            if (cachedBookings.length === 0) {
-                listElem.innerHTML = '<tr><td colspan="5" style="padding:20px; color:#64748b;">신청된 예약건이 없습니다.</td></tr>';
+            const filterKey = document.getElementById('pending-filter-key') ? document.getElementById('pending-filter-key').value : 'pendingOnly';
+            let filteredBookings = [...cachedBookings];
+
+            // 🎯 필터별 가공
+            if (filterKey === 'pendingOnly') {
+                filteredBookings = filteredBookings.filter(b => !b.approved || b.status === 'CHANGE_REQUESTED');
+            } else if (filterKey === 'approvedOnly') {
+                filteredBookings = filteredBookings.filter(b => b.approved);
+            }
+
+            if (filteredBookings.length === 0) {
+                const msg = filterKey === 'pendingOnly' ? '대기 중인 예약 신청건이 없습니다.' : '해당하는 예약건이 없습니다.';
+                listElem.innerHTML = `<tr><td colspan="5" style="padding:20px; color:#64748b;">${msg}</td></tr>`;
                 return;
             }
 
-            const sortedBookings = [...cachedBookings].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+            // 예약 날짜 기준 정렬 (최신순)
+            filteredBookings.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
-            sortedBookings.forEach(b => {
+            filteredBookings.forEach(b => {
                 const targetDate = b.changeRequestedDate || b.date;
                 const isApproved = b.approved;
                 const tr = document.createElement('tr');
@@ -365,7 +389,6 @@
             }
         }
 
-        // 🎯 4번 하단 클릭 일자별 좌석 상세 카드 출력 복구
         function showDaySeatDetails(dateStr) {
             const title = document.getElementById('admin-detail-title');
             const container = document.getElementById('admin-detail-slots');
