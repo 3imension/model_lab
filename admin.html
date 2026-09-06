@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 관리자 페이지</title>
-    <link rel="stylesheet" href="style.css?v=4.0">
+    <link rel="stylesheet" href="style.css?v=4.2">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -69,11 +69,11 @@
                 </table>
             </div>
 
-            <!-- 🎯 3. 일자별 좌석 직접 배정 & 예약 승인 처리 섹션 -->
+            <!-- 3. 회원 예약 신청건 좌석 직접 배정 및 승인 처리 -->
             <div style="border-top: 2px dashed #e2e8f0; padding-top: 25px; margin-bottom: 35px;">
                 <h3 style="margin-bottom: 15px; color:#1e40af;">3. 회원 예약 신청건 좌석 직접 배정 및 예약 승인 처리</h3>
                 
-                <div style="max-height: 350px; overflow-y: auto; border: 1px solid #bfdbfe; border-radius: 8px; margin-bottom:20px;">
+                <div style="max-height: 380px; overflow-y: auto; border: 1px solid #bfdbfe; border-radius: 8px; margin-bottom:20px;">
                     <table class="admin-table" style="margin-top:0; border:none;">
                         <thead style="position:sticky; top:0; z-index:10; background:#eff6ff;">
                             <tr style="color:#1e40af;">
@@ -91,7 +91,7 @@
                 </div>
             </div>
 
-            <!-- 4. 월간 캘린더 및 일자별 좌석 현황 -->
+            <!-- 4. 월간 캘린더 및 확정 좌석 현황 -->
             <div style="border-top: 2px dashed #e2e8f0; padding-top: 25px; margin-bottom: 35px;">
                 <h3 style="margin-bottom: 15px;">4. 월간 캘린더 및 확정 좌석 현황</h3>
                 <div class="calendar-nav-header">
@@ -136,15 +136,89 @@
             return map[code] || code || '미지정';
         }
 
+        function loadNoticeImageAdmin() {
+            if(!db) return;
+            db.collection('settings').doc('notice_image').get().then(doc => {
+                if (doc.exists && doc.data().url) {
+                    document.getElementById('img-preview').src = doc.data().url;
+                    document.getElementById('img-preview-wrap').style.display = 'block';
+                } else {
+                    document.getElementById('img-preview-wrap').style.display = 'none';
+                }
+            });
+        }
+
+        function uploadNoticeImage() {
+            const fileInput = document.getElementById('admin-img-file');
+            const btn = document.getElementById('upload-btn');
+            if (!fileInput.files || !fileInput.files[0]) return alert('업로드할 이미지 파일을 선택해 주세요.');
+
+            const file = fileInput.files[0];
+            btn.disabled = true;
+            btn.textContent = '업로드 중...';
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                db.collection('settings').doc('notice_image').set({
+                    url: e.target.result,
+                    updatedAt: new Date()
+                }).then(() => {
+                    alert('이미지 게시가 완료되었습니다.');
+                    loadNoticeImageAdmin();
+                }).finally(() => {
+                    btn.disabled = false;
+                    btn.textContent = '이미지 게시하기';
+                });
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function deleteNoticeImage() {
+            if(!confirm('게시된 공지 이미지를 삭제하시겠습니까?')) return;
+            await db.collection('settings').doc('notice_image').delete();
+            document.getElementById('img-preview-wrap').style.display = 'none';
+            document.getElementById('admin-img-file').value = '';
+            alert('이미지가 삭제되었습니다.');
+        }
+
+        // 2. 회원 목록 렌더링
         function renderUserList() {
             const userListElem = document.getElementById('admin-user-list');
             userListElem.innerHTML = '';
 
-            rawUsersList.forEach(u => {
+            const sortKey = document.getElementById('user-sort-key').value;
+            let sortedUsers = [...rawUsersList];
+
+            sortedUsers.sort((a, b) => {
+                if (sortKey === 'regDate') {
+                    return (b.createdAt || '').localeCompare(a.createdAt || '');
+                } else if (sortKey === 'name') {
+                    return (a.name || '').localeCompare(b.name || '');
+                }
+                return 0;
+            });
+
+            if (sortedUsers.length === 0) {
+                userListElem.innerHTML = '<tr><td colspan="9">가입된 회원이 없습니다.</td></tr>';
+                return;
+            }
+
+            sortedUsers.forEach(u => {
                 const total = Number(u.totalHours || 0);
                 const used = Number(u.usedHours || 0);
                 const usedCount = Math.floor(used / 5);
                 const totalCount = Math.floor(total / 5);
+
+                let regDateStr = u.createdAt ? u.createdAt.substring(0, 10) : '-';
+
+                let historyDropdownHTML = '<span style="color:#94a3b8; font-size:0.8rem;">이력 없음</span>';
+                if (u.classHistory && Array.isArray(u.classHistory) && u.classHistory.length > 0) {
+                    historyDropdownHTML = `<select style="font-size:0.78rem; padding:4px; border-color:#cbd5e1;">`;
+                    u.classHistory.forEach((cCode, idx) => {
+                        historyDropdownHTML += `<option value="${cCode}">${idx + 1}차: ${getClassTitle(cCode)}</option>`;
+                    });
+                    historyDropdownHTML += `</select>`;
+                }
 
                 let currentClassSelectHTML = `
                     <select onchange="adminChangeUserClass('${u.id}', this.value)" style="font-size:0.8rem; font-weight:bold; padding:4px;">
@@ -153,56 +227,67 @@
                         <option value="BASIC_4" ${u.classType === 'BASIC_4' ? 'selected' : ''}>BASIC (4회/20시간)</option>
                         <option value="BASIC_8" ${u.classType === 'BASIC_8' ? 'selected' : ''}>BASIC (8회/40시간)</option>
                         <option value="BASIC_16" ${u.classType === 'BASIC_16' ? 'selected' : ''}>BASIC (16회/80시간)</option>
+                        <option value="FREE_PASS" ${u.classType === 'FREE_PASS' ? 'selected' : ''}>자유이용권</option>
+                        <option value="CREATOR" ${u.classType === 'CREATOR' ? 'selected' : ''}>CREATOR (8회/40시간)</option>
                     </select>
                 `;
 
+                let displayIdHTML = u.isDeleted ? `<strong style="color:#ef4444;">${u.id}(탈퇴)</strong>` : `<strong>${u.id}</strong>`;
+                let statusBadgeHTML = u.approved ? `<b style="color:#15803d;">OK</b>` : `<b style="color:#d97706;">NO</b>`;
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td>${u.createdAt ? u.createdAt.substring(0,10) : '-'}</td>
-                    <td><strong>${u.id}</strong></td>
-                    <td>${u.name}</td>
-                    <td>${u.phone}</td>
-                    <td>-</td>
+                    <td style="font-size:0.8rem; color:#64748b;">${regDateStr}</td>
+                    <td>${displayIdHTML}</td>
+                    <td>${u.name || '-'}</td>
+                    <td>${u.phone || '-'}</td>
+                    <td>${historyDropdownHTML}</td>
                     <td>${currentClassSelectHTML}</td>
-                    <td><b>${usedCount}회 / ${totalCount}회</b></td>
-                    <td>${u.approved ? '<b style="color:green;">OK</b>' : '<b style="color:orange;">NO</b>'}</td>
-                    <td><button onclick="approveUser('${u.id}')" class="nav-btn btn-success" style="padding:4px 8px;">승인</button></td>
+                    <td><b>${usedCount}회 / ${totalCount}회</b><br><small style="color:#64748b;">(${used}h / ${total}h)</small></td>
+                    <td>${statusBadgeHTML}</td>
+                    <td>
+                        <button onclick="approveUser('${u.id}')" class="nav-btn btn-success" style="padding:4px 8px;">승인/재승인</button>
+                    </td>
                 `;
                 userListElem.appendChild(tr);
             });
         }
 
-        // 🎯 3. 대기 중인 회원 예약 신청건 좌석 직접 배정 & 승인
+        // 3. 회원 예약 신청건 좌석 배정 및 승인 렌더링
         function renderPendingBookings() {
             const listElem = document.getElementById('admin-pending-booking-list');
             listElem.innerHTML = '';
 
-            const pendingBookings = cachedBookings.filter(b => !b.approved || b.status === 'CHANGE_REQUESTED');
-
-            if (pendingBookings.length === 0) {
-                listElem.innerHTML = '<tr><td colspan="5" style="padding:20px; color:#64748b;">대기 중인 예약 신청건이 없습니다.</td></tr>';
+            if (cachedBookings.length === 0) {
+                listElem.innerHTML = '<tr><td colspan="5" style="padding:20px; color:#64748b;">신청된 예약건이 없습니다.</td></tr>';
                 return;
             }
 
-            pendingBookings.forEach(b => {
+            // 날짜 기준 정렬
+            const sortedBookings = [...cachedBookings].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+            sortedBookings.forEach(b => {
                 const targetDate = b.changeRequestedDate || b.date;
+                const isApproved = b.approved;
                 const tr = document.createElement('tr');
 
+                let btnHTML = isApproved ? 
+                    `<button class="nav-btn btn-primary" disabled style="padding:6px 14px; background:#2563eb; cursor:default;">승인완료 (${b.seat || 'M01'})</button>` :
+                    `<button onclick="confirmSeatAndApprove('${b.id}', '${targetDate}')" class="nav-btn btn-success" style="padding:6px 14px;">좌석 배정 & 예약 승인</button>`;
+
                 tr.innerHTML = `
-                    <td><b>${b.userName}</b> (${b.userId})</td>
+                    <td><b>${b.userName || '-'}</b> (${b.userId})</td>
                     <td><strong style="color:#2563eb;">${targetDate}</strong> ${b.status === 'CHANGE_REQUESTED' ? '<span style="color:#ef4444; font-size:0.75rem;">(변경요청)</span>' : ''}</td>
-                    <td>${b.time || '야간/주말'}</td>
+                    <td>${b.time || '19:00 - 23:00 (평일 야간)'}</td>
                     <td>
-                        <select id="seat-select-${b.id}" style="padding:6px; font-weight:bold;">
+                        <select id="seat-select-${b.id}" ${isApproved ? 'disabled' : ''} style="padding:6px; font-weight:bold;">
                             <option value="M01" ${b.seat === 'M01' ? 'selected' : ''}>M01 좌석 배정</option>
                             <option value="M02" ${b.seat === 'M02' ? 'selected' : ''}>M02 좌석 배정</option>
                             <option value="M03" ${b.seat === 'M03' ? 'selected' : ''}>M03 좌석 배정</option>
                             <option value="M04" ${b.seat === 'M04' ? 'selected' : ''}>M04 좌석 배정</option>
                         </select>
                     </td>
-                    <td>
-                        <button onclick="confirmSeatAndApprove('${b.id}', '${targetDate}')" class="nav-btn btn-success" style="padding:6px 14px;">좌석 배정 & 예약 승인</button>
-                    </td>
+                    <td>${btnHTML}</td>
                 `;
                 listElem.appendChild(tr);
             });
@@ -212,15 +297,10 @@
             const seatSelect = document.getElementById(`seat-select-${bookingId}`);
             const selectedSeat = seatSelect.value;
 
-            // 좌석 중복 검사
-            const dupCheck = await db.collection('bookings')
-                .where('date', '==', targetDate)
-                .where('seat', '==', selectedSeat)
-                .where('approved', '==', true)
-                .get();
-
-            if (!dupCheck.empty) {
-                return alert(`선택하신 [${selectedSeat}] 좌석은 해당 날짜에 이미 다른 승인된 예약이 존재합니다. 다른 좌석을 배정하세요.`);
+            // 좌석 중복 체크
+            const dupCheck = cachedBookings.find(b => b.id !== bookingId && b.date === targetDate && b.seat === selectedSeat && b.approved);
+            if (dupCheck) {
+                return alert(`선택하신 [${selectedSeat}] 좌석은 ${targetDate} 날짜에 이미 승인된 다른 예약이 있습니다.`);
             }
 
             await db.collection('bookings').doc(bookingId).update({
@@ -234,21 +314,7 @@
             alert(`[예약 확정 완료]\n날짜: ${targetDate}\n배정 좌석: ${selectedSeat}`);
         }
 
-        function listenAdminData() {
-            if(!db) return;
-
-            db.collection('users').onSnapshot(snapshot => {
-                rawUsersList = snapshot.docs.map(d => d.data()).filter(u => u.id !== '3imension');
-                renderUserList();
-            });
-
-            db.collection('bookings').onSnapshot(snapshot => {
-                cachedBookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderPendingBookings();
-                renderAdminCalendar();
-            });
-        }
-
+        // 4. 월간 캘린더 렌더링 및 하단 세부 좌석 카드 출력
         function renderAdminCalendar() {
             document.getElementById('admin-month-title').textContent = `${adminYear}년 ${adminMonth + 1}월`;
             const grid = document.getElementById('admin-calendar-grid');
@@ -277,27 +343,113 @@
                         ${count >= 4 ? '매진' : `${count}/4 확정`}
                     </span>
                 `;
+
+                // 🎯 날짜 클릭 시 하단 좌석별 상세 정보 노출
+                cell.onclick = () => {
+                    document.querySelectorAll('#admin-calendar-grid .calendar-day-cell').forEach(c => c.classList.remove('selected'));
+                    cell.classList.add('selected');
+                    showDaySeatDetails(dateStr);
+                };
+
                 grid.appendChild(cell);
             }
         }
 
+        // 🎯 4번 하단 클릭 일자별 좌석 상세 카드 출력
+        function showDaySeatDetails(dateStr) {
+            const title = document.getElementById('admin-detail-title');
+            const container = document.getElementById('admin-detail-slots');
+            title.textContent = `📌 ${dateStr} 좌석별 배정 현황`;
+            container.innerHTML = '';
+
+            const dayBookings = cachedBookings.filter(b => b.date === dateStr && b.approved);
+
+            let seatCardsHTML = '';
+            ["M01", "M02", "M03", "M04"].forEach(seat => {
+                const booked = dayBookings.find(b => b.seat === seat);
+                if (booked) {
+                    const userObj = cachedUsersMap[booked.userId] || {};
+                    let displayId = booked.userId;
+                    if(userObj.isDeleted) displayId = `<span style="color:#ef4444; font-weight:bold;">${booked.userId}(탈퇴)</span>`;
+
+                    seatCardsHTML += `
+                        <div style="background:#fef3c7; border:2px solid #f59e0b; padding:12px; border-radius:8px; font-size:0.85rem; text-align:center;">
+                            <strong style="color:#b45309; font-size:0.95rem;">${seat} (예약확정)</strong><br>
+                            <span style="font-weight:bold; color:#1e293b; font-size:0.9rem;">${booked.userName || userObj.name || '-'}</span><br>
+                            <span style="font-size:0.75rem; color:#64748b;">(${displayId})</span>
+                        </div>`;
+                } else {
+                    seatCardsHTML += `
+                        <div style="background:#f1f5f9; border:1px solid #cbd5e1; padding:12px; border-radius:8px; font-size:0.85rem; text-align:center; color:#94a3b8;">
+                            <strong>${seat}</strong><br>
+                            <span>(빈 자리)</span>
+                        </div>`;
+                }
+            });
+
+            container.innerHTML = `
+                <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin-top:10px;">
+                    ${seatCardsHTML}
+                </div>
+            `;
+        }
+
+        function listenAdminData() {
+            if(!db) return;
+
+            db.collection('users').onSnapshot(snapshot => {
+                rawUsersList = [];
+                cachedUsersMap = {};
+                snapshot.docs.forEach(doc => {
+                    const u = doc.data();
+                    if (u.id === '3imension') return;
+                    cachedUsersMap[u.id] = u;
+                    rawUsersList.push(u);
+                });
+                renderUserList();
+            });
+
+            db.collection('bookings').onSnapshot(snapshot => {
+                cachedBookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderPendingBookings();
+                renderAdminCalendar();
+            });
+        }
+
         async function approveUser(userId) {
-            await db.collection('users').doc(userId).update({ approved: true });
-            alert('회원 승인이 완료되었습니다.');
+            await db.collection('users').doc(userId).update({ approved: true, usedHours: 0 });
+            alert(`${userId} 회원의 클래스가 승인/재승인 되었습니다.`);
         }
 
         async function adminChangeUserClass(userId, classVal) {
             let total = 0;
             if (classVal === 'BASIC_1') total = 5;
             else if (classVal === 'BASIC_4') total = 20;
-            else if (classVal === 'BASIC_8') total = 40;
+            else if (classVal === 'BASIC_8' || classVal === 'CREATOR') total = 40;
             else if (classVal === 'BASIC_16') total = 80;
+            else if (classVal === 'FREE_PASS') total = 720;
 
-            await db.collection('users').doc(userId).update({ classType: classVal, totalHours: total, usedHours: 0, approved: true });
-            alert('클래스가 부여되었습니다.');
+            const userDoc = await db.collection('users').doc(userId).get();
+            const currentData = userDoc.exists ? userDoc.data() : {};
+            const history = currentData.classHistory || [];
+            
+            if (classVal !== '미지정' && !history.includes(classVal)) history.push(classVal);
+
+            await db.collection('users').doc(userId).update({
+                classType: classVal,
+                totalHours: total,
+                usedHours: 0,
+                approved: classVal !== '미지정',
+                classHistory: history
+            });
+            alert(`${userId} 회원의 클래스가 [${getClassTitle(classVal)}] (으)로 변경되었습니다.`);
         }
 
+        document.getElementById('admin-prev-btn').onclick = () => { adminMonth--; if(adminMonth<0){adminMonth=11; adminYear--;} renderAdminCalendar(); };
+        document.getElementById('admin-next-btn').onclick = () => { adminMonth++; if(adminMonth>11){adminMonth=0; adminYear++;} renderAdminCalendar(); };
+
         document.addEventListener('DOMContentLoaded', () => {
+            loadNoticeImageAdmin();
             listenAdminData();
         });
     </script>
