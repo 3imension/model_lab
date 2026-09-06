@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 내 정보 및 좌석 예약</title>
-    <link rel="stylesheet" href="style.css?v=4.6">
+    <link rel="stylesheet" href="style.css?v=4.7">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -62,7 +62,7 @@
                 </div>
             </div>
 
-            <!-- 💜 3. 좌석 예약 (시간대별/좌석별 현황 선택 통합) -->
+            <!-- 💜 3. 좌석 예약 -->
             <div id="reservation-section" style="background: #f5f3ff; border: 2px solid #8b5cf6; padding: 22px; border-radius: 12px; margin-bottom: 30px;">
                 <h2 style="font-size: 1.2rem; color: #6d28d9; margin-bottom: 15px;">3. 좌석 예약 (달력에서 날짜 클릭 후 하단 시간대/빈 좌석 클릭)</h2>
 
@@ -76,7 +76,7 @@
                     </div>
                     <div id="res-calendar" class="monthly-calendar-grid"></div>
 
-                    <!-- 🎯 선택한 일자의 시간대별 좌석 현황표 및 선택 영역 -->
+                    <!-- 일자별 시간대/좌석 선택 영역 -->
                     <div id="day-detail-section" style="margin-top: 25px; padding-top: 20px; border-top: 2px dashed #ddd6fe;">
                         <h4 id="detail-title" style="font-size: 1.05rem; color: #4c1d95; margin-bottom:15px;">📌 날짜를 클릭하면 하단에 시간대별 좌석 선택창이 출력됩니다.</h4>
                         
@@ -186,7 +186,6 @@
                 return 0;
             });
 
-            const currentHour = now.getHours();
             const tomorrowObj = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
             const tomorrowStr = formatDateStr(tomorrowObj);
 
@@ -269,6 +268,7 @@
             }
         }
 
+        // 🎯 본인 예약 상태별 색상 텍스트 배지 시각화 달력
         async function renderResCal() {
             document.getElementById('res-month-title').textContent = `${year}년 ${month + 1}월`;
             const cal = document.getElementById('res-calendar');
@@ -278,6 +278,8 @@
 
             const first = new Date(year, month, 1).getDay();
             const last = new Date(year, month + 1, 0).getDate();
+
+            const myId = String(session.id).trim();
 
             if (db) {
                 try {
@@ -299,22 +301,38 @@
                 const totalCap = ((dayOfWeek === 0 || dayOfWeek === 6) ? 3 : 1) * 4;
                 
                 const dayBookings = monthBookingsCache.filter(b => b.date === dateStr);
-                const reservedCount = dayBookings.length;
-                const availableSeats = Math.max(0, totalCap - reservedCount);
+                const myBookings = dayBookings.filter(b => String(b.userId).trim() === myId);
+
+                const myPendingCount = myBookings.filter(b => !b.approved).length;
+                const myCompletedCount = myBookings.filter(b => b.approved && (dateStr < todayStr)).length;
+                const myUpcomingCount = myBookings.filter(b => b.approved && (dateStr >= todayStr)).length;
 
                 const cell = document.createElement('div');
                 cell.className = 'calendar-day-cell';
                 if (selDate === dateStr) cell.classList.add('selected');
                 if (dateStr === todayStr) cell.classList.add('is-today');
 
-                let badgeHTML = '';
-                if (availableSeats === 0) {
-                    badgeHTML = `<span class="day-status-badge full">매진 (0석)</span>`;
-                } else {
-                    badgeHTML = `<span class="day-status-badge available">여유 (${availableSeats}석)</span>`;
+                let badgesHTML = '';
+                
+                // 1) 신청중
+                if (myPendingCount > 0) {
+                    badgesHTML += `<span class="day-status-badge" style="background:#fef3c7; color:#b45309; font-weight:bold; margin-bottom:2px;">신청중 ${myPendingCount}건</span>`;
+                }
+                // 2) 이용예정
+                if (myUpcomingCount > 0) {
+                    badgesHTML += `<span class="day-status-badge" style="background:#dcfce7; color:#15803d; font-weight:bold; margin-bottom:2px;">이용예정 ${myUpcomingCount}건</span>`;
+                }
+                // 3) 사용완료
+                if (myCompletedCount > 0) {
+                    badgesHTML += `<span class="day-status-badge" style="background:#cbd5e1; color:#475569; font-weight:bold;">완료 ${myCompletedCount}건</span>`;
                 }
 
-                cell.innerHTML = `<span class="day-number">${d}</span>${badgeHTML}`;
+                if (!badgesHTML) {
+                    const avail = Math.max(0, totalCap - dayBookings.length);
+                    badgesHTML = avail === 0 ? `<span class="day-status-badge full">매진</span>` : `<span class="day-status-badge available">여유 (${avail}석)</span>`;
+                }
+
+                cell.innerHTML = `<span class="day-number">${d}</span><div style="display:flex; flex-direction:column; gap:1px;">${badgesHTML}</div>`;
                 
                 cell.onclick = () => {
                     document.querySelectorAll('#res-calendar .calendar-day-cell').forEach(c => c.classList.remove('selected'));
@@ -333,7 +351,6 @@
             }
         }
 
-        // 🎯 일자별 시간대/좌석 현황표 출력 및 선택 기능
         function showDaySeatDetailsMyPage(dateStr, slots) {
             const title = document.getElementById('detail-title');
             const container = document.getElementById('detail-slots');
@@ -423,7 +440,7 @@
                 date: selDate,
                 time: selTime,
                 seat: selSeat,
-                approved: false, // 관리자가 최종 확정
+                approved: false,
                 classType: userData.classType || 'BASIC_1',
                 hours: 5,
                 createdAt: new Date()
