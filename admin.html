@@ -76,13 +76,13 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                     <h3 style="margin: 0; color:#1e40af;">3. 회원 예약 신청건 좌석 직접 배정 및 예약 승인 처리</h3>
                     
-                    <!-- 🎯 승인 대기 / 전체 / 승인완료 필터 드롭다운 메뉴 -->
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <label style="font-size: 0.85rem; font-weight: bold; color:#1e40af;">예약 필터:</label>
-                        <select id="pending-filter-key" onchange="renderPendingBookings()" style="font-size: 0.85rem; padding: 6px 10px; border: 2px solid #3b82f6; border-radius: 6px; background: #fff; font-weight: bold; color: #1e40af;">
-                            <option value="pendingOnly">승인 대기건만 보기 (우선)</option>
-                            <option value="all">전체 신청/승인건 보기</option>
-                            <option value="approvedOnly">승인 완료건만 보기</option>
+                        <label style="font-size: 0.85rem; font-weight: bold; color:#1e40af;">예약 필터/정렬:</label>
+                        <select id="pending-filter-key" onchange="renderPendingBookings()" style="width: 170px; padding: 6px; font-size: 0.85rem; border-color:#93c5fd; background:#fff;">
+                            <option value="pendingFirst">승인대기건 우선보기</option>
+                            <option value="all">전체보기 (신청순)</option>
+                            <option value="dateAsc">예약 신청일 오름차순 ▲</option>
+                            <option value="userName">신청 회원이름순</option>
                         </select>
                     </div>
                 </div>
@@ -195,7 +195,6 @@
             alert('이미지가 삭제되었습니다.');
         }
 
-        // 2. 회원 목록 렌더링
         function renderUserList() {
             const userListElem = document.getElementById('admin-user-list');
             if (!userListElem) return;
@@ -276,46 +275,64 @@
             });
         }
 
-        // 3. 회원 예약 신청건 좌석 배정 및 승인 렌더링 (드롭다운 소팅 필터 적용)
+        // 3. 회원 예약 신청건 좌석 배정 및 승인 렌더링 (드롭다운 필터 및 사용완료 버튼 상태 반영)
         function renderPendingBookings() {
             const listElem = document.getElementById('admin-pending-booking-list');
             if (!listElem) return;
             listElem.innerHTML = '';
 
-            const filterKey = document.getElementById('pending-filter-key') ? document.getElementById('pending-filter-key').value : 'pendingOnly';
-            let filteredBookings = [...cachedBookings];
-
-            // 🎯 필터별 가공
-            if (filterKey === 'pendingOnly') {
-                filteredBookings = filteredBookings.filter(b => !b.approved || b.status === 'CHANGE_REQUESTED');
-            } else if (filterKey === 'approvedOnly') {
-                filteredBookings = filteredBookings.filter(b => b.approved);
-            }
-
-            if (filteredBookings.length === 0) {
-                const msg = filterKey === 'pendingOnly' ? '대기 중인 예약 신청건이 없습니다.' : '해당하는 예약건이 없습니다.';
-                listElem.innerHTML = `<tr><td colspan="5" style="padding:20px; color:#64748b;">${msg}</td></tr>`;
+            if (cachedBookings.length === 0) {
+                listElem.innerHTML = '<tr><td colspan="5" style="padding:20px; color:#64748b;">신청된 예약건이 없습니다.</td></tr>';
                 return;
             }
 
-            // 예약 날짜 기준 정렬 (최신순)
-            filteredBookings.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+            const filterKey = document.getElementById('pending-filter-key').value;
+            let sortedBookings = [...cachedBookings];
 
-            filteredBookings.forEach(b => {
+            // 🎯 드롭다운 소팅/필터 로직
+            sortedBookings.sort((a, b) => {
+                const targetDateA = a.changeRequestedDate || a.date || '';
+                const targetDateB = b.changeRequestedDate || b.date || '';
+
+                if (filterKey === 'pendingFirst') {
+                    if (!a.approved && b.approved) return -1;
+                    if (a.approved && !b.approved) return 1;
+                    return targetDateA.localeCompare(targetDateB);
+                } else if (filterKey === 'dateAsc') {
+                    return targetDateA.localeCompare(targetDateB);
+                } else if (filterKey === 'userName') {
+                    return (a.userName || '').localeCompare(b.userName || '');
+                }
+                return 0;
+            });
+
+            sortedBookings.forEach(b => {
                 const targetDate = b.changeRequestedDate || b.date;
                 const isApproved = b.approved;
+                const isPast = targetDate < todayStr; // 오늘 이전의 지난 예약건인지 검사
                 const tr = document.createElement('tr');
 
-                let btnHTML = isApproved ? 
-                    `<button class="nav-btn btn-primary" disabled style="padding:6px 14px; background:#2563eb; cursor:default; opacity:0.9;">승인완료 (${b.seat || 'M01'})</button>` :
-                    `<button onclick="confirmSeatAndApprove('${b.id}', '${targetDate}')" class="nav-btn btn-success" style="padding:6px 14px;">좌석 배정 & 예약 승인</button>`;
+                let btnHTML = '';
+
+                // 🛑 사용 완료된 과거 예약건
+                if (isPast) {
+                    btnHTML = `<button class="nav-btn" disabled style="padding:6px 14px; background:#94a3b8; color:#ffffff; cursor:default;">사용완료 (${b.seat || 'M01'})</button>`;
+                } 
+                // 승인 완료건
+                else if (isApproved) {
+                    btnHTML = `<button class="nav-btn btn-primary" disabled style="padding:6px 14px; background:#2563eb; cursor:default; opacity:0.9;">승인완료 (${b.seat || 'M01'})</button>`;
+                } 
+                // 대기건
+                else {
+                    btnHTML = `<button onclick="confirmSeatAndApprove('${b.id}', '${targetDate}')" class="nav-btn btn-success" style="padding:6px 14px;">좌석 배정 & 예약 승인</button>`;
+                }
 
                 tr.innerHTML = `
                     <td><b>${b.userName || '-'}</b> (${b.userId})</td>
                     <td><strong style="color:#2563eb;">${targetDate}</strong> ${b.status === 'CHANGE_REQUESTED' ? '<span style="color:#ef4444; font-size:0.75rem;">(변경요청)</span>' : ''}</td>
                     <td>${b.time || '19:00 - 23:00 (평일 야간)'}</td>
                     <td>
-                        <select id="seat-select-${b.id}" ${isApproved ? 'disabled' : ''} style="padding:6px; font-weight:bold;">
+                        <select id="seat-select-${b.id}" ${isApproved || isPast ? 'disabled' : ''} style="padding:6px; font-weight:bold;">
                             <option value="M01" ${b.seat === 'M01' ? 'selected' : ''}>M01 좌석 배정</option>
                             <option value="M02" ${b.seat === 'M02' ? 'selected' : ''}>M02 좌석 배정</option>
                             <option value="M03" ${b.seat === 'M03' ? 'selected' : ''}>M03 좌석 배정</option>
@@ -348,7 +365,6 @@
             alert(`[예약 확정 완료]\n날짜: ${targetDate}\n배정 좌석: ${selectedSeat}`);
         }
 
-        // 4. 월간 캘린더 렌더링
         function renderAdminCalendar() {
             document.getElementById('admin-month-title').textContent = `${adminYear}년 ${adminMonth + 1}월`;
             const grid = document.getElementById('admin-calendar-grid');
