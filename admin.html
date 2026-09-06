@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 관리자 페이지</title>
-    <link rel="stylesheet" href="style.css?v=4.2">
+    <link rel="stylesheet" href="style.css?v=4.3">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -43,9 +43,9 @@
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <label style="font-size: 0.85rem; font-weight: bold;">회원 정렬:</label>
                     <select id="user-sort-key" onchange="renderUserList()" style="width: 170px; padding: 6px; font-size: 0.85rem;">
-                        <option value="priority">승인/재승인대기 우선</option>
                         <option value="regDate">가입일자 최신순</option>
                         <option value="name">실명순 (가나다)</option>
+                        <option value="id">아이디순</option>
                     </select>
                 </div>
             </div>
@@ -65,7 +65,9 @@
                             <th>재승인</th>
                         </tr>
                     </thead>
-                    <tbody id="admin-user-list"></tbody>
+                    <tbody id="admin-user-list">
+                        <tr><td colspan="9">회원 목록을 불러오는 중...</td></tr>
+                    </tbody>
                 </table>
             </div>
 
@@ -181,19 +183,20 @@
             alert('이미지가 삭제되었습니다.');
         }
 
-        // 2. 회원 목록 렌더링
+        // 2. 회원 목록 안전 렌더링
         function renderUserList() {
             const userListElem = document.getElementById('admin-user-list');
+            if (!userListElem) return;
             userListElem.innerHTML = '';
 
             const sortKey = document.getElementById('user-sort-key').value;
             let sortedUsers = [...rawUsersList];
 
             sortedUsers.sort((a, b) => {
-                if (sortKey === 'regDate') {
-                    return (b.createdAt || '').localeCompare(a.createdAt || '');
-                } else if (sortKey === 'name') {
+                if (sortKey === 'name') {
                     return (a.name || '').localeCompare(b.name || '');
+                } else if (sortKey === 'id') {
+                    return (a.id || '').localeCompare(b.id || '');
                 }
                 return 0;
             });
@@ -209,7 +212,15 @@
                 const usedCount = Math.floor(used / 5);
                 const totalCount = Math.floor(total / 5);
 
-                let regDateStr = u.createdAt ? u.createdAt.substring(0, 10) : '-';
+                let regDateStr = '-';
+                if (u.createdAt) {
+                    try {
+                        const dateObj = u.createdAt.toDate ? u.createdAt.toDate() : new Date(u.createdAt);
+                        regDateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+                    } catch(e) {
+                        regDateStr = String(u.createdAt).substring(0, 10);
+                    }
+                }
 
                 let historyDropdownHTML = '<span style="color:#94a3b8; font-size:0.8rem;">이력 없음</span>';
                 if (u.classHistory && Array.isArray(u.classHistory) && u.classHistory.length > 0) {
@@ -256,6 +267,7 @@
         // 3. 회원 예약 신청건 좌석 배정 및 승인 렌더링
         function renderPendingBookings() {
             const listElem = document.getElementById('admin-pending-booking-list');
+            if (!listElem) return;
             listElem.innerHTML = '';
 
             if (cachedBookings.length === 0) {
@@ -263,7 +275,6 @@
                 return;
             }
 
-            // 날짜 기준 정렬
             const sortedBookings = [...cachedBookings].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
             sortedBookings.forEach(b => {
@@ -272,7 +283,7 @@
                 const tr = document.createElement('tr');
 
                 let btnHTML = isApproved ? 
-                    `<button class="nav-btn btn-primary" disabled style="padding:6px 14px; background:#2563eb; cursor:default;">승인완료 (${b.seat || 'M01'})</button>` :
+                    `<button class="nav-btn btn-primary" disabled style="padding:6px 14px; background:#2563eb; cursor:default; opacity:0.9;">승인완료 (${b.seat || 'M01'})</button>` :
                     `<button onclick="confirmSeatAndApprove('${b.id}', '${targetDate}')" class="nav-btn btn-success" style="padding:6px 14px;">좌석 배정 & 예약 승인</button>`;
 
                 tr.innerHTML = `
@@ -297,7 +308,6 @@
             const seatSelect = document.getElementById(`seat-select-${bookingId}`);
             const selectedSeat = seatSelect.value;
 
-            // 좌석 중복 체크
             const dupCheck = cachedBookings.find(b => b.id !== bookingId && b.date === targetDate && b.seat === selectedSeat && b.approved);
             if (dupCheck) {
                 return alert(`선택하신 [${selectedSeat}] 좌석은 ${targetDate} 날짜에 이미 승인된 다른 예약이 있습니다.`);
@@ -314,10 +324,11 @@
             alert(`[예약 확정 완료]\n날짜: ${targetDate}\n배정 좌석: ${selectedSeat}`);
         }
 
-        // 4. 월간 캘린더 렌더링 및 하단 세부 좌석 카드 출력
+        // 4. 월간 캘린더 렌더링
         function renderAdminCalendar() {
             document.getElementById('admin-month-title').textContent = `${adminYear}년 ${adminMonth + 1}월`;
             const grid = document.getElementById('admin-calendar-grid');
+            if (!grid) return;
             grid.innerHTML = '';
 
             const headers = ['일','월','화','수','목','금','토'];
@@ -344,7 +355,6 @@
                     </span>
                 `;
 
-                // 🎯 날짜 클릭 시 하단 좌석별 상세 정보 노출
                 cell.onclick = () => {
                     document.querySelectorAll('#admin-calendar-grid .calendar-day-cell').forEach(c => c.classList.remove('selected'));
                     cell.classList.add('selected');
@@ -355,10 +365,12 @@
             }
         }
 
-        // 🎯 4번 하단 클릭 일자별 좌석 상세 카드 출력
+        // 🎯 4번 하단 클릭 일자별 좌석 상세 카드 출력 복구
         function showDaySeatDetails(dateStr) {
             const title = document.getElementById('admin-detail-title');
             const container = document.getElementById('admin-detail-slots');
+            if (!title || !container) return;
+
             title.textContent = `📌 ${dateStr} 좌석별 배정 현황`;
             container.innerHTML = '';
 
