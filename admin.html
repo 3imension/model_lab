@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 관리자 페이지</title>
-    <link rel="stylesheet" href="style.css?v=5.0">
+    <link rel="stylesheet" href="style.css?v=5.1">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -83,7 +83,7 @@
 
                 <div id="admin-calendar-grid" class="monthly-calendar-grid"></div>
 
-                <!-- 선택 날짜 통합 컨트롤 패널 -->
+                <!-- 선택 날짜 컨트롤 패널 -->
                 <div id="admin-day-detail" style="margin-top: 25px; padding: 20px; background: #eff6ff; border: 2px solid #3b82f6; border-radius: 10px;">
                     <h4 id="admin-detail-title" style="margin-bottom: 15px; font-size: 1.1rem; color: #1e3a8a;">
                         📌 날짜를 클릭하면 해당 날짜의 좌석 배정 현황 및 승인 처리 테이블이 표시됩니다.
@@ -118,7 +118,7 @@
                         <label style="font-size: 0.85rem; font-weight: bold;">필터:</label>
                         <select id="all-booking-filter" onchange="renderAllBookingsList()" style="width: 150px; padding: 6px; font-size: 0.85rem;">
                             <option value="all">전체보기</option>
-                            <option value="pending">승인 대기건</option>
+                            <option value="pending">승인대기중건</option>
                             <option value="approved">승인 완료건</option>
                         </select>
                     </div>
@@ -283,6 +283,7 @@
             });
         }
 
+        // 3. 관리자 달력 렌더링 (용어: 승인대기중 X건 변경, 오렌지색 배지 적용)
         function renderAdminCalendar() {
             document.getElementById('admin-month-title').textContent = `${adminYear}년 ${adminMonth + 1}월`;
             const grid = document.getElementById('admin-calendar-grid');
@@ -299,6 +300,7 @@
 
             for (let d = 1; d <= last; d++) {
                 const dateStr = `${adminYear}-${String(adminMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                
                 const dayBookings = cachedBookings.filter(b => (b.date === dateStr || b.changeRequestedDate === dateStr));
 
                 const pendingCount = dayBookings.filter(b => !b.approved).length;
@@ -312,12 +314,16 @@
                 if (dateStr === todayStr) cell.classList.add('is-today');
 
                 let badgesHTML = '';
+                
+                // 🛑 1) 승인대기중 오렌지색 배지
                 if (pendingCount > 0) {
-                    badgesHTML += `<span class="day-status-badge" style="background:#fef3c7; color:#b45309; font-weight:bold; margin-bottom:2px;">신청 ${pendingCount}건</span>`;
+                    badgesHTML += `<span class="day-status-badge" style="background:#fff7ed; color:#ea580c; border:1px solid #ffedd5; font-weight:bold; margin-bottom:2px;">승인대기중 ${pendingCount}건</span>`;
                 }
+                // 2) 예약 완료 (미래/당일)
                 if (reservedCount > 0) {
                     badgesHTML += `<span class="day-status-badge" style="background:#dbeafe; color:#1e40af; font-weight:bold; margin-bottom:2px;">예약 ${reservedCount}건</span>`;
                 }
+                // 3) 사용 완료
                 if (completedCount > 0) {
                     badgesHTML += `<span class="day-status-badge" style="background:#cbd5e1; color:#475569; font-weight:bold;">완료 ${completedCount}건</span>`;
                 }
@@ -341,7 +347,6 @@
             showDaySeatDetailsAndTable(selectedAdminDate);
         }
 
-        // 🎯 3번 주말 2종 시간대 연동 좌석 카드 및 배정 승인
         function showDaySeatDetailsAndTable(dateStr) {
             const title = document.getElementById('admin-detail-title');
             const slotsContainer = document.getElementById('admin-detail-slots');
@@ -351,7 +356,6 @@
 
             const dayOfWeek = new Date(dateStr).getDay();
             const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
-            // 🛑 변경된 주말 2종 시간대
             const slots = isWeekend ? ["10:00 - 15:00 (주말 1부)", "15:00 - 20:00 (주말 2부)"] : ["19:00 - 24:00 (평일 야간)"];
 
             const dayApprovedBookings = cachedBookings.filter(b => (b.date === dateStr || b.changeRequestedDate === dateStr) && b.approved);
@@ -406,7 +410,6 @@
                 const isPast = targetDate < todayStr;
                 const tr = document.createElement('tr');
 
-                // 🛑 주말 2종 시간대 선택 드롭다운
                 let timeSelectHTML = '';
                 if (isWeekend) {
                     timeSelectHTML = `
@@ -469,7 +472,7 @@
             alert(`[예약 확정 완료]\n날짜: ${targetDate}\n시간: ${selectedTime}\n배정 좌석: ${selectedSeat}`);
         }
 
-        // 4. 회원별 예약 현황 (사용완료 시각화)
+        // 🛑 4번 회원별 예약 현황 (용어: 승인대기중, 오렌지색 배지)
         function renderAllBookingsList() {
             const listElem = document.getElementById('admin-all-booking-list');
             if (!listElem) return;
@@ -499,7 +502,7 @@
                 } else if (b.approved) {
                     statusText = `<span style="background:#dcfce7; color:#15803d; padding:3px 8px; border-radius:4px; font-weight:bold; font-size:0.8rem;">승인완료</span>`;
                 } else {
-                    statusText = `<span style="background:#fef9c3; color:#a16207; padding:3px 8px; border-radius:4px; font-weight:bold; font-size:0.8rem;">승인대기</span>`;
+                    statusText = `<span style="background:#fff7ed; color:#ea580c; border:1px solid #ffedd5; padding:3px 8px; border-radius:4px; font-weight:bold; font-size:0.8rem;">승인대기중</span>`;
                 }
 
                 tr.innerHTML = `

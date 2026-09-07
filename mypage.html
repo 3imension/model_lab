@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 내 정보 및 좌석 예약</title>
-    <link rel="stylesheet" href="style.css?v=5.0">
+    <link rel="stylesheet" href="style.css?v=5.1">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -76,7 +76,7 @@
                     </div>
                     <div id="res-calendar" class="monthly-calendar-grid"></div>
 
-                    <!-- 일자별 시간대 선택 및 현황표 조회 영역 -->
+                    <!-- 일자별 시간대 선택 영역 -->
                     <div id="day-detail-section" style="margin-top: 25px; padding-top: 20px; border-top: 2px dashed #ddd6fe;">
                         <h4 id="detail-title" style="font-size: 1.05rem; color: #4c1d95; margin-bottom:15px;">📌 날짜를 클릭하면 해당 날짜의 시간대 선택 및 좌석 현황이 표시됩니다.</h4>
                         
@@ -93,7 +93,7 @@
                 </div>
             </div>
 
-            <!-- 💚 4. 내 좌석 예약 내역 목록 -->
+            <!-- 💚 4. 내 좌석 예약 내역 목록 (용어: 승인대기중, 오렌지색 배지) -->
             <div style="background: #ecfdf5; border: 2px solid #10b981; padding: 22px; border-radius: 12px; margin-bottom: 20px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; flex-wrap:wrap; gap:10px;">
                     <h2 style="font-size: 1.2rem; color: #047857; margin:0;">4. 내 좌석 예약 내역 목록</h2>
@@ -171,6 +171,7 @@
             return s.substring(0, 1) + '***';
         }
 
+        // 🛑 4번 내 좌석 예약 목록 (승인대기중 오렌지색 배지)
         function renderMyBookingsList() {
             const list = document.getElementById('my-booking-list');
             list.innerHTML = '';
@@ -202,10 +203,10 @@
                 if (isPast) {
                     statusBtnHTML = `<span style="background:#cbd5e1; color:#475569; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">사용완료</span>`;
                 } else if (b.status === 'CHANGE_REQUESTED') {
-                    statusBtnHTML = `<span style="background:#fef3c7; color:#b45309; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">변경 요청중</span>`;
+                    statusBtnHTML = `<span style="background:#fff7ed; color:#ea580c; border:1px solid #ffedd5; padding:4px 8px; border-radius:4px; font-size:0.8rem; font-weight:bold;">변경 요청중</span>`;
                 } else if (!b.approved) {
                     statusBtnHTML = `
-                        <span style="background:#fef9c3; color:#a16207; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold; margin-right:4px;">승인 대기중</span>
+                        <span style="background:#fff7ed; color:#ea580c; border:1px solid #ffedd5; padding:4px 8px; border-radius:4px; font-size:0.8rem; font-weight:bold; margin-right:4px;">승인대기중</span>
                         <button onclick="cancelBooking('${b.docId}')" class="nav-btn btn-danger" style="padding: 2px 6px; font-size: 0.75rem;">취소</button>
                     `;
                 } else if (canModify) {
@@ -271,6 +272,7 @@
             }
         }
 
+        // 🛑 회원 달력 상태 시각화 (승인대기중 오렌지색 배지)
         async function renderResCal() {
             document.getElementById('res-month-title').textContent = `${year}년 ${month + 1}월`;
             const cal = document.getElementById('res-calendar');
@@ -300,7 +302,6 @@
             for(let d = 1; d <= last; d++) {
                 const dateStr = `${year}-${String(month + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
                 const dayOfWeek = new Date(year, month, d).getDay();
-                // 🛑 주말 2종 (8석), 평일 1종 (4석)
                 const totalCap = ((dayOfWeek === 0 || dayOfWeek === 6) ? 2 : 1) * 4;
                 
                 const dayBookings = monthBookingsCache.filter(b => b.date === dateStr);
@@ -316,12 +317,16 @@
                 if (dateStr === todayStr) cell.classList.add('is-today');
 
                 let badgesHTML = '';
+                
+                // 🛑 1) 승인대기중 오렌지 배지
                 if (myPendingCount > 0) {
-                    badgesHTML += `<span class="day-status-badge" style="background:#fef3c7; color:#b45309; font-weight:bold; margin-bottom:2px;">신청중 ${myPendingCount}건</span>`;
+                    badgesHTML += `<span class="day-status-badge" style="background:#fff7ed; color:#ea580c; border:1px solid #ffedd5; font-weight:bold; margin-bottom:2px;">승인대기중 ${myPendingCount}건</span>`;
                 }
+                // 2) 이용예정
                 if (myUpcomingCount > 0) {
                     badgesHTML += `<span class="day-status-badge" style="background:#dcfce7; color:#15803d; font-weight:bold; margin-bottom:2px;">이용예정 ${myUpcomingCount}건</span>`;
                 }
+                // 3) 완료
                 if (myCompletedCount > 0) {
                     badgesHTML += `<span class="day-status-badge" style="background:#cbd5e1; color:#475569; font-weight:bold;">완료 ${myCompletedCount}건</span>`;
                 }
@@ -339,7 +344,6 @@
                     selDate = dateStr;
                     selTime = '';
 
-                    // 🛑 변경된 시간대 기준
                     const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
                     const slots = isWeekend ? ["10:00 - 15:00 (주말 1부)", "15:00 - 20:00 (주말 2부)"] : ["19:00 - 24:00 (평일 야간)"];
 
@@ -398,7 +402,6 @@
                 container.appendChild(slotBox);
             });
 
-            // 🛑 변경된 시간대 선택 라디오 버튼
             selTime = slots[0];
             let timeOptionsHTML = `<div style="font-weight:800; color:#4c1d95; margin-bottom:12px; font-size:1.15rem;">👉 신청할 시간대를 선택하세요 (${dateStr}):</div><div style="display:flex; justify-content:center; gap:20px; flex-wrap:wrap;">`;
             
@@ -490,7 +493,7 @@
         }
 
         document.getElementById('res-prev-btn').onclick = () => { month--; if(month < 0){ month = 11; year--; } renderResCal(); };
-        document.getElementById('res-next-btn').onclick = () => { month++; if(month > 11){ month = 0; year--; } renderResCal(); };
+        document.getElementById('res-next-btn').onclick = () => { month++; if(month > 11){ month = 0; year++; } renderResCal(); };
 
         async function deleteAccount() {
             if (!confirm('정말로 탈퇴하시겠습니까?')) return;
