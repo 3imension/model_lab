@@ -62,9 +62,9 @@
                 </div>
             </div>
 
-            <!-- 💜 3. 좌석 예약 (날짜 선택 전용, 하단 좌석은 단순 현황 표기) -->
+            <!-- 💜 3. 좌석 예약 (날짜/시간 선택 예약 신청) -->
             <div id="reservation-section" style="background: #f5f3ff; border: 2px solid #8b5cf6; padding: 22px; border-radius: 12px; margin-bottom: 30px;">
-                <h2 style="font-size: 1.2rem; color: #6d28d9; margin-bottom: 15px;">3. 좌석 예약 (달력에서 원하는 날짜 클릭 후 예약 신청)</h2>
+                <h2 style="font-size: 1.2rem; color: #6d28d9; margin-bottom: 15px;">3. 좌석 예약 (달력에서 날짜 클릭 후 시간대 선택)</h2>
 
                 <div id="pass-creator-notice" style="display:none; background:#ffffff; border:2px solid #7c3aed; padding:16px; border-radius:8px; text-align:center; color:#5b21b6; font-weight:bold; font-size:0.95rem; margin-bottom:15px;"></div>
                 
@@ -76,17 +76,17 @@
                     </div>
                     <div id="res-calendar" class="monthly-calendar-grid"></div>
 
-                    <!-- 일자별 시간대/좌석 현황 및 신청 바 -->
+                    <!-- 일자별 시간대 선택 및 현황표 조회 영역 -->
                     <div id="day-detail-section" style="margin-top: 25px; padding-top: 20px; border-top: 2px dashed #ddd6fe;">
-                        <h4 id="detail-title" style="font-size: 1.05rem; color: #4c1d95; margin-bottom:15px;">📌 달력에서 날짜를 먼저 클릭해 주세요.</h4>
+                        <h4 id="detail-title" style="font-size: 1.05rem; color: #4c1d95; margin-bottom:15px;">📌 날짜를 클릭하면 해당 날짜의 시간대 선택 및 좌석 현황이 표시됩니다.</h4>
                         
-                        <!-- 선택 불가 단순 좌석 현황표 -->
+                        <!-- 좌석 점유 단순 조회 현황판 -->
                         <div id="detail-slots" class="slots-container"></div>
 
-                        <!-- 날짜 전용 신청 바 -->
+                        <!-- 시간대 선택 및 예약 버튼 컨트롤 바 -->
                         <div id="booking-action-bar" style="display:none; margin-top:20px; background:#ffffff; border:2px solid #8b5cf6; padding:18px; border-radius:8px; text-align:center;">
-                            <span id="booking-summary-text" style="font-weight:bold; font-size:1rem; margin-right:15px; color:#5b21b6;"></span>
-                            <button id="confirm-btn" onclick="submitBookingRequest()" class="nav-btn btn-primary" style="padding:10px 24px; font-size:0.95rem; background:#7c3aed;">선택한 날짜 예약 신청하기</button>
+                            <div id="time-selection-area" style="margin-bottom:15px;"></div>
+                            <button id="confirm-btn" onclick="submitBookingRequest()" class="nav-btn btn-primary" style="padding:10px 24px; font-size:0.95rem; background:#7c3aed;">선택한 날짜/시간대 예약 신청하기</button>
                         </div>
                     </div>
                 </div>
@@ -106,7 +106,7 @@
                     </div>
                 </div>
 
-                <p style="font-size:0.8rem; color:#059669; margin-bottom:12px;">* 예약 신청 후 공방장(관리자)이 좌석을 직접 지정하여 승인 처리합니다 (예약일 1일 전까지 변경 요청/취소 가능).</p>
+                <p style="font-size:0.8rem; color:#059669; margin-bottom:12px;">* 관리자가 확인 후 최종 좌석을 지정하여 승인 처리합니다.</p>
                 
                 <div style="max-height: 380px; overflow-y: auto; border: 1px solid #a7f3d0; border-radius: 8px;">
                     <table class="admin-table" style="margin-top: 0; background:#ffffff; border:none;">
@@ -142,7 +142,7 @@
         let month = now.getMonth();
         const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
-        let selDate = '';
+        let selDate = '', selTime = '';
         let monthBookingsCache = [];
         let currentUserData = {};
         let rawMyBookingsList = [];
@@ -201,10 +201,10 @@
                 if (isPast) {
                     statusBtnHTML = `<span style="background:#cbd5e1; color:#475569; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">사용완료</span>`;
                 } else if (b.status === 'CHANGE_REQUESTED') {
-                    statusBtnHTML = `<span style="background:#fef3c7; color:#b45309; padding:4px 8px; border-radius:4px; font-size:0.8rem; font-weight:bold;">변경 요청중</span>`;
+                    statusBtnHTML = `<span style="background:#fef3c7; color:#b45309; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">변경 요청중</span>`;
                 } else if (!b.approved) {
                     statusBtnHTML = `
-                        <span style="background:#fef9c3; color:#a16207; padding:4px 8px; border-radius:4px; font-size:0.8rem; font-weight:bold; margin-right:4px;">승인 대기중</span>
+                        <span style="background:#fef9c3; color:#a16207; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold; margin-right:4px;">승인 대기중</span>
                         <button onclick="cancelBooking('${b.docId}')" class="nav-btn btn-danger" style="padding: 2px 6px; font-size: 0.75rem;">취소</button>
                     `;
                 } else if (canModify) {
@@ -216,7 +216,7 @@
                     statusBtnHTML = `<span style="background:#fef3c7; color:#b45309; padding:4px 8px; border-radius:4px; font-size:0.8rem; font-weight:bold;">변경/취소 불가</span>`;
                 }
 
-                const seatText = b.seat ? `<strong style="color:#2563eb;">${b.seat}</strong>` : `<span style="color:#94a3b8;">관리자 배정중</span>`;
+                const seatText = b.seat ? `<strong style="color:#2563eb;">${b.seat}</strong>` : `<span style="color:#94a3b8;">미배정</span>`;
 
                 tr.innerHTML = `
                     <td>${getClassTitle(b.classType)}</td>
@@ -331,7 +331,6 @@
 
                 cell.innerHTML = `<span class="day-number">${d}</span><div style="display:flex; flex-direction:column; gap:1px;">${badgesHTML}</div>`;
                 
-                // 🎯 날짜 클릭 시 해당 날짜 지정 및 하단 현황표 출력
                 cell.onclick = () => {
                     document.querySelectorAll('#res-calendar .calendar-day-cell').forEach(c => c.classList.remove('selected'));
                     cell.classList.add('selected');
@@ -341,26 +340,24 @@
                     const slots = isWeekend ? ["10:00 - 14:00 (주말 1부)", "14:00 - 18:00 (주말 2부)", "18:00 - 22:00 (주말 3부)"] : ["19:00 - 23:00 (평일 야간)"];
 
                     showDaySeatDetailsMyPage(dateStr, slots);
-
-                    // 하단 신청 바 노출
-                    const actionBar = document.getElementById('booking-action-bar');
-                    const summaryText = document.getElementById('booking-summary-text');
-                    summaryText.textContent = `👉 선택 신청 날짜: ${selDate}`;
-                    actionBar.style.display = 'block';
                 };
                 cal.appendChild(cell);
             }
         }
 
-        // 🎯 클릭 불가 순수 점유 현황표 출력
+        // 🎯 시간대별 좌석 단순 점유 현황 표 출력 및 시간대 선택 UI
         function showDaySeatDetailsMyPage(dateStr, slots) {
             const title = document.getElementById('detail-title');
             const container = document.getElementById('detail-slots');
-            title.textContent = `📌 ${dateStr} 좌석 점유 현황 (좌석은 신청 후 관리자가 직접 배정합니다)`;
+            const actionBar = document.getElementById('booking-action-bar');
+            const timeArea = document.getElementById('time-selection-area');
+
+            title.textContent = `📌 ${dateStr} 시간대별 좌석 점유 현황 (좌석은 관리자가 승인 시 지정합니다)`;
             container.innerHTML = '';
 
             const myId = String(session.id).trim();
 
+            // 1. 단순 현황판 생성 (선택 클릭 불가)
             slots.forEach(slot => {
                 const slotBookings = monthBookingsCache.filter(b => b.date === dateStr && b.time === slot);
                 const slotBox = document.createElement('div');
@@ -376,14 +373,14 @@
 
                         seatCardsHTML += `
                             <div style="background:${isMine ? '#f3e8ff' : '#f1f5f9'}; border:1px solid ${isMine ? '#a855f7' : '#cbd5e1'}; padding:10px; border-radius:6px; font-size:0.82rem; text-align:center; color:${isMine ? '#7e22ce' : '#475569'};">
-                                <strong>${seat} ${isMine ? '(내 예약)' : '(확정완료)'}</strong><br>
+                                <strong>${seat} ${isMine ? '(내 예약)' : '(예약완료)'}</strong><br>
                                 <span style="font-weight:bold; color:#1e293b;">${displayName}</span>
                             </div>`;
                     } else {
                         seatCardsHTML += `
-                            <div style="background:#ffffff; border:1px dashed #cbd5e1; padding:10px; border-radius:6px; font-size:0.82rem; text-align:center; color:#94a3b8;">
+                            <div style="background:#ffffff; border:1px dashed #cbd5e1; padding:10px; border-radius:6px; font-size:0.82rem; text-align:center; color:#64748b;">
                                 <strong>${seat}</strong><br>
-                                <span>(빈 자리)</span>
+                                <span style="color:#16a34a; font-weight:bold;">(빈 자리)</span>
                             </div>`;
                     }
                 });
@@ -396,11 +393,25 @@
                 `;
                 container.appendChild(slotBox);
             });
+
+            // 2. 예약할 시간대 선택 라디오 버튼 및 컨트롤 바 구성
+            selTime = slots[0]; // 기본 첫번째 시간대 선택
+            let timeOptionsHTML = `<div style="font-weight:bold; color:#4c1d95; margin-bottom:8px; font-size:0.95rem;">👉 신청할 시간대를 선택하세요 (${dateStr}):</div>`;
+            
+            slots.forEach((s, idx) => {
+                timeOptionsHTML += `
+                    <label style="margin-right:15px; font-size:0.9rem; font-weight:bold; cursor:pointer;">
+                        <input type="radio" name="slotSelect" value="${s}" ${idx === 0 ? 'checked' : ''} onchange="selTime = this.value"> ${s}
+                    </label>
+                `;
+            });
+
+            timeArea.innerHTML = timeOptionsHTML;
+            actionBar.style.display = 'block';
         }
 
-        // 🎯 날짜 기반 예약 신청 제출
         async function submitBookingRequest() {
-            if(!selDate) return alert('날짜를 먼저 선택해 주세요.');
+            if(!selDate || !selTime) return alert('날짜 및 시간대를 선택해 주세요.');
 
             const confirmBtn = document.getElementById('confirm-btn');
             confirmBtn.disabled = true;
@@ -420,23 +431,19 @@
                 return;
             }
 
-            const dayOfWeek = new Date(selDate).getDay();
-            const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
-            const defaultSlot = isWeekend ? "10:00 - 14:00 (주말 1부)" : "19:00 - 23:00 (평일 야간)";
-
             await db.collection('bookings').add({
                 userId: myId,
                 userName: session.name || '',
                 date: selDate,
-                time: defaultSlot,
+                time: selTime,
                 seat: null, // 관리자가 직접 배정
-                approved: false, // 관리자가 최종 승인
+                approved: false,
                 classType: userData.classType || 'BASIC_1',
                 hours: 5,
                 createdAt: new Date()
             });
 
-            alert(`[예약 신청 완료]\n신청 날짜: ${selDate}\n공방장(관리자) 확인 후 좌석 배정 및 승인이 진행됩니다.`);
+            alert(`[예약 신청 완료]\n일시: ${selDate} / ${selTime}\n공방장(관리자) 확인 및 좌석 배정 후 승인 처리됩니다.`);
             location.reload();
         }
 
@@ -462,7 +469,7 @@
         }
 
         document.getElementById('res-prev-btn').onclick = () => { month--; if(month < 0){ month = 11; year--; } renderResCal(); };
-        document.getElementById('res-next-btn').onclick = () => { month++; if(month > 11){ month = 0; year++; } renderResCal(); };
+        document.getElementById('res-next-btn').onclick = () => { month++; if(month > 11){ month = 0; year--; } renderResCal(); };
 
         async function deleteAccount() {
             if (!confirm('정말로 탈퇴하시겠습니까?')) return;
