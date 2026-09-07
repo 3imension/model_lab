@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 내 정보 및 좌석 예약</title>
-    <link rel="stylesheet" href="style.css?v=4.8">
+    <link rel="stylesheet" href="style.css?v=4.9">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -62,7 +62,7 @@
                 </div>
             </div>
 
-            <!-- 💜 3. 좌석 예약 (날짜/시간 선택 예약 신청) -->
+            <!-- 💜 3. 좌석 예약 -->
             <div id="reservation-section" style="background: #f5f3ff; border: 2px solid #8b5cf6; padding: 22px; border-radius: 12px; margin-bottom: 30px;">
                 <h2 style="font-size: 1.2rem; color: #6d28d9; margin-bottom: 15px;">3. 좌석 예약 (달력에서 날짜 클릭 후 시간대 선택)</h2>
 
@@ -83,10 +83,15 @@
                         <!-- 좌석 점유 단순 조회 현황판 -->
                         <div id="detail-slots" class="slots-container"></div>
 
-                        <!-- 시간대 선택 및 예약 버튼 컨트롤 바 -->
-                        <div id="booking-action-bar" style="display:none; margin-top:20px; background:#ffffff; border:2px solid #8b5cf6; padding:18px; border-radius:8px; text-align:center;">
-                            <div id="time-selection-area" style="margin-bottom:15px;"></div>
-                            <button id="confirm-btn" onclick="submitBookingRequest()" class="nav-btn btn-primary" style="padding:10px 24px; font-size:0.95rem; background:#7c3aed;">선택한 날짜/시간대 예약 신청하기</button>
+                        <!-- 🎯 시간대 선택 (폰트 대폭 확대) & 예약 버튼 & 하단 안내문 영역 -->
+                        <div id="booking-action-bar" style="display:none; margin-top:20px; background:#ffffff; border:2px solid #8b5cf6; padding:22px; border-radius:10px; text-align:center;">
+                            <div id="time-selection-area" style="margin-bottom:20px;"></div>
+                            
+                            <button id="confirm-btn" onclick="submitBookingRequest()" class="nav-btn btn-primary" style="padding:14px 36px; font-size:1.15rem; font-weight:bold; background:#6d28d9; border-radius:8px; cursor:pointer;">선택한 날짜/시간대 예약 신청하기</button>
+
+                            <!-- 🎯 예약 신청 완료 안내문 (버튼 하단에 팝업 없이 노출) -->
+                            <div id="booking-result-notice" style="display:none; margin-top:18px; padding:16px; background:#f0fdf4; border:2px solid #16a34a; border-radius:8px; color:#15803d; font-size:1rem; font-weight:bold; line-height:1.6;">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -335,6 +340,7 @@
                     document.querySelectorAll('#res-calendar .calendar-day-cell').forEach(c => c.classList.remove('selected'));
                     cell.classList.add('selected');
                     selDate = dateStr;
+                    selTime = '';
 
                     const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
                     const slots = isWeekend ? ["10:00 - 14:00 (주말 1부)", "14:00 - 18:00 (주말 2부)", "18:00 - 22:00 (주말 3부)"] : ["19:00 - 23:00 (평일 야간)"];
@@ -345,19 +351,19 @@
             }
         }
 
-        // 🎯 시간대별 좌석 단순 점유 현황 표 출력 및 시간대 선택 UI
         function showDaySeatDetailsMyPage(dateStr, slots) {
             const title = document.getElementById('detail-title');
             const container = document.getElementById('detail-slots');
             const actionBar = document.getElementById('booking-action-bar');
             const timeArea = document.getElementById('time-selection-area');
+            const noticeBox = document.getElementById('booking-result-notice');
 
             title.textContent = `📌 ${dateStr} 시간대별 좌석 점유 현황 (좌석은 관리자가 승인 시 지정합니다)`;
             container.innerHTML = '';
+            noticeBox.style.display = 'none';
 
             const myId = String(session.id).trim();
 
-            // 1. 단순 현황판 생성 (선택 클릭 불가)
             slots.forEach(slot => {
                 const slotBookings = monthBookingsCache.filter(b => b.date === dateStr && b.time === slot);
                 const slotBox = document.createElement('div');
@@ -394,26 +400,29 @@
                 container.appendChild(slotBox);
             });
 
-            // 2. 예약할 시간대 선택 라디오 버튼 및 컨트롤 바 구성
-            selTime = slots[0]; // 기본 첫번째 시간대 선택
-            let timeOptionsHTML = `<div style="font-weight:bold; color:#4c1d95; margin-bottom:8px; font-size:0.95rem;">👉 신청할 시간대를 선택하세요 (${dateStr}):</div>`;
+            // 🎯 시간대 안내문 및 라디오 버튼 폰트/크기 대폭 확대
+            selTime = slots[0];
+            let timeOptionsHTML = `<div style="font-weight:800; color:#4c1d95; margin-bottom:12px; font-size:1.15rem;">👉 신청할 시간대를 선택하세요 (${dateStr}):</div><div style="display:flex; justify-content:center; gap:20px; flex-wrap:wrap;">`;
             
             slots.forEach((s, idx) => {
                 timeOptionsHTML += `
-                    <label style="margin-right:15px; font-size:0.9rem; font-weight:bold; cursor:pointer;">
-                        <input type="radio" name="slotSelect" value="${s}" ${idx === 0 ? 'checked' : ''} onchange="selTime = this.value"> ${s}
+                    <label style="font-size:1.05rem; font-weight:bold; cursor:pointer; color:#1e293b; display:inline-flex; align-items:center; gap:6px; background:#f5f3ff; padding:8px 16px; border-radius:8px; border:1px solid #ddd6fe;">
+                        <input type="radio" name="slotSelect" value="${s}" ${idx === 0 ? 'checked' : ''} onchange="selTime = this.value" style="width:18px; height:18px; cursor:pointer;"> ${s}
                     </label>
                 `;
             });
+            timeOptionsHTML += `</div>`;
 
             timeArea.innerHTML = timeOptionsHTML;
             actionBar.style.display = 'block';
         }
 
+        // 🎯 팝업 제거 및 신청 완료 안내문 버튼 하단 노출
         async function submitBookingRequest() {
-            if(!selDate || !selTime) return alert('날짜 및 시간대를 선택해 주세요.');
+            if(!selDate || !selTime) return;
 
             const confirmBtn = document.getElementById('confirm-btn');
+            const noticeBox = document.getElementById('booking-result-notice');
             confirmBtn.disabled = true;
 
             const myId = String(session.id).trim();
@@ -426,7 +435,11 @@
             const used = Number(userData.usedHours || 0);
 
             if (!userData.approved || total <= used) {
-                alert('이용 클래스 승인이 없거나 시간이 모두 만료되었습니다.');
+                noticeBox.style.display = 'block';
+                noticeBox.style.background = '#fef2f2';
+                noticeBox.style.borderColor = '#ef4444';
+                noticeBox.style.color = '#dc2626';
+                noticeBox.innerHTML = `⚠️ 이용 클래스 승인이 없거나 시간이 모두 만료되어 예약을 신청할 수 없습니다.`;
                 confirmBtn.disabled = false;
                 return;
             }
@@ -436,15 +449,27 @@
                 userName: session.name || '',
                 date: selDate,
                 time: selTime,
-                seat: null, // 관리자가 직접 배정
+                seat: null,
                 approved: false,
                 classType: userData.classType || 'BASIC_1',
                 hours: 5,
                 createdAt: new Date()
             });
 
-            alert(`[예약 신청 완료]\n일시: ${selDate} / ${selTime}\n공방장(관리자) 확인 및 좌석 배정 후 승인 처리됩니다.`);
-            location.reload();
+            // 🎯 버튼 하단에 안내 문구 출력 (팝업창 없음)
+            noticeBox.style.display = 'block';
+            noticeBox.style.background = '#f0fdf4';
+            noticeBox.style.borderColor = '#16a34a';
+            noticeBox.style.color = '#15803d';
+            noticeBox.innerHTML = `
+                ✅ [예약 신청 완료]<br>
+                일시: ${selDate} / ${selTime}<br>
+                <span style="font-size:0.9rem; font-weight:normal; color:#475569;">공방장(관리자) 확인 및 좌석 배정 후 승인 처리됩니다.</span>
+            `;
+
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
         }
 
         async function requestBookingChange(docId, oldDate) {
@@ -469,7 +494,7 @@
         }
 
         document.getElementById('res-prev-btn').onclick = () => { month--; if(month < 0){ month = 11; year--; } renderResCal(); };
-        document.getElementById('res-next-btn').onclick = () => { month++; if(month > 11){ month = 0; year--; } renderResCal(); };
+        document.getElementById('res-next-btn').onclick = () => { month++; if(month > 11){ month = 0; year++; } renderResCal(); };
 
         async function deleteAccount() {
             if (!confirm('정말로 탈퇴하시겠습니까?')) return;
