@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 내 정보 및 좌석 예약</title>
-    <link rel="stylesheet" href="style.css?v=4.9">
+    <link rel="stylesheet" href="style.css?v=5.0">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -80,18 +80,14 @@
                     <div id="day-detail-section" style="margin-top: 25px; padding-top: 20px; border-top: 2px dashed #ddd6fe;">
                         <h4 id="detail-title" style="font-size: 1.05rem; color: #4c1d95; margin-bottom:15px;">📌 날짜를 클릭하면 해당 날짜의 시간대 선택 및 좌석 현황이 표시됩니다.</h4>
                         
-                        <!-- 좌석 점유 단순 조회 현황판 -->
                         <div id="detail-slots" class="slots-container"></div>
 
-                        <!-- 🎯 시간대 선택 (폰트 대폭 확대) & 예약 버튼 & 하단 안내문 영역 -->
                         <div id="booking-action-bar" style="display:none; margin-top:20px; background:#ffffff; border:2px solid #8b5cf6; padding:22px; border-radius:10px; text-align:center;">
                             <div id="time-selection-area" style="margin-bottom:20px;"></div>
                             
                             <button id="confirm-btn" onclick="submitBookingRequest()" class="nav-btn btn-primary" style="padding:14px 36px; font-size:1.15rem; font-weight:bold; background:#6d28d9; border-radius:8px; cursor:pointer;">선택한 날짜/시간대 예약 신청하기</button>
 
-                            <!-- 🎯 예약 신청 완료 안내문 (버튼 하단에 팝업 없이 노출) -->
-                            <div id="booking-result-notice" style="display:none; margin-top:18px; padding:16px; background:#f0fdf4; border:2px solid #16a34a; border-radius:8px; color:#15803d; font-size:1rem; font-weight:bold; line-height:1.6;">
-                            </div>
+                            <div id="booking-result-notice" style="display:none; margin-top:18px; padding:16px; background:#f0fdf4; border:2px solid #16a34a; border-radius:8px; color:#15803d; font-size:1rem; font-weight:bold; line-height:1.6;"></div>
                         </div>
                     </div>
                 </div>
@@ -226,7 +222,7 @@
                 tr.innerHTML = `
                     <td>${getClassTitle(b.classType)}</td>
                     <td>${b.date} ${b.changeRequestedDate ? `<br><small style="color:#ea580c;">(변경요청: ${b.changeRequestedDate})</small>` : ''}</td>
-                    <td>${b.time || '19:00 - 23:00 (평일 야간)'}</td>
+                    <td>${b.time || '19:00 - 24:00 (평일 야간)'}</td>
                     <td>${seatText}</td>
                     <td>${statusBtnHTML}</td>
                 `;
@@ -304,7 +300,8 @@
             for(let d = 1; d <= last; d++) {
                 const dateStr = `${year}-${String(month + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
                 const dayOfWeek = new Date(year, month, d).getDay();
-                const totalCap = ((dayOfWeek === 0 || dayOfWeek === 6) ? 3 : 1) * 4;
+                // 🛑 주말 2종 (8석), 평일 1종 (4석)
+                const totalCap = ((dayOfWeek === 0 || dayOfWeek === 6) ? 2 : 1) * 4;
                 
                 const dayBookings = monthBookingsCache.filter(b => b.date === dateStr);
                 const myBookings = dayBookings.filter(b => String(b.userId).trim() === myId);
@@ -342,8 +339,9 @@
                     selDate = dateStr;
                     selTime = '';
 
+                    // 🛑 변경된 시간대 기준
                     const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
-                    const slots = isWeekend ? ["10:00 - 14:00 (주말 1부)", "14:00 - 18:00 (주말 2부)", "18:00 - 22:00 (주말 3부)"] : ["19:00 - 23:00 (평일 야간)"];
+                    const slots = isWeekend ? ["10:00 - 15:00 (주말 1부)", "15:00 - 20:00 (주말 2부)"] : ["19:00 - 24:00 (평일 야간)"];
 
                     showDaySeatDetailsMyPage(dateStr, slots);
                 };
@@ -400,7 +398,7 @@
                 container.appendChild(slotBox);
             });
 
-            // 🎯 시간대 안내문 및 라디오 버튼 폰트/크기 대폭 확대
+            // 🛑 변경된 시간대 선택 라디오 버튼
             selTime = slots[0];
             let timeOptionsHTML = `<div style="font-weight:800; color:#4c1d95; margin-bottom:12px; font-size:1.15rem;">👉 신청할 시간대를 선택하세요 (${dateStr}):</div><div style="display:flex; justify-content:center; gap:20px; flex-wrap:wrap;">`;
             
@@ -417,7 +415,6 @@
             actionBar.style.display = 'block';
         }
 
-        // 🎯 팝업 제거 및 신청 완료 안내문 버튼 하단 노출
         async function submitBookingRequest() {
             if(!selDate || !selTime) return;
 
@@ -456,7 +453,6 @@
                 createdAt: new Date()
             });
 
-            // 🎯 버튼 하단에 안내 문구 출력 (팝업창 없음)
             noticeBox.style.display = 'block';
             noticeBox.style.background = '#f0fdf4';
             noticeBox.style.borderColor = '#16a34a';
@@ -494,7 +490,7 @@
         }
 
         document.getElementById('res-prev-btn').onclick = () => { month--; if(month < 0){ month = 11; year--; } renderResCal(); };
-        document.getElementById('res-next-btn').onclick = () => { month++; if(month > 11){ month = 0; year++; } renderResCal(); };
+        document.getElementById('res-next-btn').onclick = () => { month++; if(month > 11){ month = 0; year--; } renderResCal(); };
 
         async function deleteAccount() {
             if (!confirm('정말로 탈퇴하시겠습니까?')) return;

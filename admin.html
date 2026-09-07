@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 관리자 페이지</title>
-    <link rel="stylesheet" href="style.css?v=4.7">
+    <link rel="stylesheet" href="style.css?v=5.0">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -89,10 +89,8 @@
                         📌 날짜를 클릭하면 해당 날짜의 좌석 배정 현황 및 승인 처리 테이블이 표시됩니다.
                     </h4>
 
-                    <!-- 시간대별 좌석 카드 현황 -->
                     <div id="admin-detail-slots" style="margin-bottom: 20px;"></div>
 
-                    <!-- 해당 일자 신청 회원 배정 및 승인 처리 테이블 -->
                     <div style="background:#ffffff; border-radius:8px; border:1px solid #bfdbfe; overflow:hidden;">
                         <table class="admin-table" style="margin-top:0; border:none;">
                             <thead>
@@ -112,7 +110,7 @@
                 </div>
             </div>
 
-            <!-- 4. 회원별 예약/신청 전체 현황 (이름 클릭 시 달력 이동) -->
+            <!-- 4. 회원별 예약/신청 전체 현황 -->
             <div style="border-top: 2px dashed #e2e8f0; padding-top: 25px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                     <h3 style="margin: 0;">4. 회원별 예약/신청 전체 현황</h3>
@@ -285,7 +283,6 @@
             });
         }
 
-        // 🎯 3. 월간 캘린더 렌더링 (상태별 색상 텍스트 배지 출력)
         function renderAdminCalendar() {
             document.getElementById('admin-month-title').textContent = `${adminYear}년 ${adminMonth + 1}월`;
             const grid = document.getElementById('admin-calendar-grid');
@@ -302,7 +299,6 @@
 
             for (let d = 1; d <= last; d++) {
                 const dateStr = `${adminYear}-${String(adminMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                
                 const dayBookings = cachedBookings.filter(b => (b.date === dateStr || b.changeRequestedDate === dateStr));
 
                 const pendingCount = dayBookings.filter(b => !b.approved).length;
@@ -316,16 +312,12 @@
                 if (dateStr === todayStr) cell.classList.add('is-today');
 
                 let badgesHTML = '';
-                
-                // 1) 승인 대기
                 if (pendingCount > 0) {
                     badgesHTML += `<span class="day-status-badge" style="background:#fef3c7; color:#b45309; font-weight:bold; margin-bottom:2px;">신청 ${pendingCount}건</span>`;
                 }
-                // 2) 예약 완료 (미래/당일)
                 if (reservedCount > 0) {
                     badgesHTML += `<span class="day-status-badge" style="background:#dbeafe; color:#1e40af; font-weight:bold; margin-bottom:2px;">예약 ${reservedCount}건</span>`;
                 }
-                // 3) 사용 완료 (지나간 날짜)
                 if (completedCount > 0) {
                     badgesHTML += `<span class="day-status-badge" style="background:#cbd5e1; color:#475569; font-weight:bold;">완료 ${completedCount}건</span>`;
                 }
@@ -334,10 +326,7 @@
                     badgesHTML = `<span class="day-status-badge available" style="color:#94a3b8;">여유</span>`;
                 }
 
-                cell.innerHTML = `
-                    <span class="day-number">${d}</span>
-                    <div style="display:flex; flex-direction:column; gap:1px;">${badgesHTML}</div>
-                `;
+                cell.innerHTML = `<span class="day-number">${d}</span><div style="display:flex; flex-direction:column; gap:1px;">${badgesHTML}</div>`;
 
                 cell.onclick = () => {
                     document.querySelectorAll('#admin-calendar-grid .calendar-day-cell').forEach(c => c.classList.remove('selected'));
@@ -352,6 +341,7 @@
             showDaySeatDetailsAndTable(selectedAdminDate);
         }
 
+        // 🎯 3번 주말 2종 시간대 연동 좌석 카드 및 배정 승인
         function showDaySeatDetailsAndTable(dateStr) {
             const title = document.getElementById('admin-detail-title');
             const slotsContainer = document.getElementById('admin-detail-slots');
@@ -361,7 +351,8 @@
 
             const dayOfWeek = new Date(dateStr).getDay();
             const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
-            const slots = isWeekend ? ["10:00 - 14:00 (주말 1부)", "14:00 - 18:00 (주말 2부)", "18:00 - 22:00 (주말 3부)"] : ["19:00 - 23:00 (평일 야간)"];
+            // 🛑 변경된 주말 2종 시간대
+            const slots = isWeekend ? ["10:00 - 15:00 (주말 1부)", "15:00 - 20:00 (주말 2부)"] : ["19:00 - 24:00 (평일 야간)"];
 
             const dayApprovedBookings = cachedBookings.filter(b => (b.date === dateStr || b.changeRequestedDate === dateStr) && b.approved);
 
@@ -415,16 +406,16 @@
                 const isPast = targetDate < todayStr;
                 const tr = document.createElement('tr');
 
+                // 🛑 주말 2종 시간대 선택 드롭다운
                 let timeSelectHTML = '';
                 if (isWeekend) {
                     timeSelectHTML = `
                         <select id="time-select-${b.id}" ${isApproved || isPast ? 'disabled' : ''} style="padding:6px; font-size:0.8rem; border-color:#93c5fd;">
-                            <option value="10:00 - 14:00 (주말 1부)" ${b.time.includes('주말 1부') ? 'selected' : ''}>10:00 - 14:00 (주말 1부)</option>
-                            <option value="14:00 - 18:00 (주말 2부)" ${b.time.includes('주말 2부') ? 'selected' : ''}>14:00 - 18:00 (주말 2부)</option>
-                            <option value="18:00 - 22:00 (주말 3부)" ${b.time.includes('주말 3부') ? 'selected' : ''}>18:00 - 22:00 (주말 3부)</option>
+                            <option value="10:00 - 15:00 (주말 1부)" ${b.time.includes('주말 1부') ? 'selected' : ''}>10:00 - 15:00 (주말 1부)</option>
+                            <option value="15:00 - 20:00 (주말 2부)" ${b.time.includes('주말 2부') ? 'selected' : ''}>15:00 - 20:00 (주말 2부)</option>
                         </select>`;
                 } else {
-                    timeSelectHTML = `<span style="font-size:0.85rem; font-weight:bold;">${b.time || '19:00 - 23:00 (평일 야간)'}</span>`;
+                    timeSelectHTML = `<span style="font-size:0.85rem; font-weight:bold;">${b.time || '19:00 - 24:00 (평일 야간)'}</span>`;
                 }
 
                 let btnHTML = '';
@@ -459,7 +450,7 @@
             const selectedSeat = seatSelect.value;
 
             const timeSelect = document.getElementById(`time-select-${bookingId}`);
-            const selectedTime = timeSelect ? timeSelect.value : "19:00 - 23:00 (평일 야간)";
+            const selectedTime = timeSelect ? timeSelect.value : "19:00 - 24:00 (평일 야간)";
 
             const dupCheck = cachedBookings.find(b => b.id !== bookingId && b.date === targetDate && b.time === selectedTime && b.seat === selectedSeat && b.approved);
             if (dupCheck) {
@@ -478,7 +469,7 @@
             alert(`[예약 확정 완료]\n날짜: ${targetDate}\n시간: ${selectedTime}\n배정 좌석: ${selectedSeat}`);
         }
 
-        // 🎯 4번 회원별 예약 현황 (이름 클릭 시 해당 날짜 달력 이동 연동)
+        // 4. 회원별 예약 현황 (사용완료 시각화)
         function renderAllBookingsList() {
             const listElem = document.getElementById('admin-all-booking-list');
             if (!listElem) return;
@@ -516,7 +507,7 @@
                         <b>${b.userName || userObj.name || '-'}</b> (${b.userId})
                     </td>
                     <td>${b.date}</td>
-                    <td>${b.time || '19:00 - 23:00 (평일 야간)'}</td>
+                    <td>${b.time || '19:00 - 24:00 (평일 야간)'}</td>
                     <td><strong style="color:#2563eb;">${b.seat || '미배정'}</strong></td>
                     <td>${statusText}</td>
                 `;
@@ -524,7 +515,6 @@
             });
         }
 
-        // 🎯 4번 목록 클릭 시 해당 날짜 연월 달력으로 이동 및 일자 선택 처리
         function jumpToCalendarDate(dateStr) {
             if (!dateStr) return;
             const parts = dateStr.split('-');
