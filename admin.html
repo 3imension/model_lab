@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 관리자 페이지</title>
-    <link rel="stylesheet" href="style.css?v=5.3">
+    <link rel="stylesheet" href="style.css?v=5.4">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -300,11 +300,13 @@
             for (let d = 1; d <= last; d++) {
                 const dateStr = `${adminYear}-${String(adminMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                 
-                const dayBookings = cachedBookings.filter(b => (b.date === dateStr || b.changeRequestedDate === dateStr));
+                // 🛑 변경 요청일 및 정식 날짜 일치건 조회
+                const dayBookings = cachedBookings.filter(b => {
+                    const targetDate = (b.status === 'CHANGE_REQUESTED' && b.changeRequestedDate) ? b.changeRequestedDate : b.date;
+                    return targetDate === dateStr;
+                });
 
                 const pendingCount = dayBookings.filter(b => !b.approved).length;
-                
-                // 🛑 CREATOR 클래스는 좌석 점유 카운트에서 제외 (M01~M04 실제 점유건만 카운트)
                 const completedCount = dayBookings.filter(b => b.approved && (dateStr < todayStr) && b.classType !== 'CREATOR').length;
                 const reservedCount = dayBookings.filter(b => b.approved && (dateStr >= todayStr) && b.classType !== 'CREATOR').length;
 
@@ -345,7 +347,7 @@
             showDaySeatDetailsAndTable(selectedAdminDate);
         }
 
-        // 🎯 3번 일자별 컨트롤 패널 (CREATOR 좌석 지정 무관화 처리)
+        // 🎯 일자별 승인 및 좌석 카드 출력 (승인 시 date 갱신 버그 완벽 수정)
         function showDaySeatDetailsAndTable(dateStr) {
             const title = document.getElementById('admin-detail-title');
             const slotsContainer = document.getElementById('admin-detail-slots');
@@ -357,8 +359,8 @@
             const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
             const slots = isWeekend ? ["10:00 - 15:00 (주말 1부)", "15:00 - 20:00 (주말 2부)"] : ["19:00 - 24:00 (평일 야간)"];
 
-            // 🛑 M01~M04 카드는 CREATOR가 아닌 배정된 좌석건만 표시
-            const dayApprovedBookings = cachedBookings.filter(b => (b.date === dateStr || b.changeRequestedDate === dateStr) && b.approved && b.classType !== 'CREATOR');
+            // 🛑 정식 date가 dateStr와 일치하는 승인건 조회
+            const dayApprovedBookings = cachedBookings.filter(b => b.date === dateStr && b.approved && b.classType !== 'CREATOR');
 
             let slotsCardsHTML = '';
             slots.forEach(slot => {
@@ -396,7 +398,11 @@
 
             slotsContainer.innerHTML = slotsCardsHTML;
 
-            const dayAllBookings = cachedBookings.filter(b => (b.date === dateStr || b.changeRequestedDate === dateStr));
+            // 🛑 변경 신청 날짜 또는 원본 날짜가 일치하는 처리 대상 조회
+            const dayAllBookings = cachedBookings.filter(b => {
+                const targetDate = (b.status === 'CHANGE_REQUESTED' && b.changeRequestedDate) ? b.changeRequestedDate : b.date;
+                return targetDate === dateStr;
+            });
             tableBody.innerHTML = '';
 
             if (dayAllBookings.length === 0) {
@@ -405,24 +411,23 @@
             }
 
             dayAllBookings.forEach(b => {
-                const targetDate = b.changeRequestedDate || b.date;
+                const targetDate = (b.status === 'CHANGE_REQUESTED' && b.changeRequestedDate) ? b.changeRequestedDate : b.date;
                 const isApproved = b.approved;
                 const isPast = targetDate < todayStr;
-                const isCreator = (b.classType === 'CREATOR'); // 🛑 CREATOR 여부 체크
+                const isCreator = (b.classType === 'CREATOR');
                 const tr = document.createElement('tr');
 
                 let timeSelectHTML = '';
                 if (isWeekend) {
                     timeSelectHTML = `
                         <select id="time-select-${b.id}" ${isApproved || isPast ? 'disabled' : ''} style="padding:6px; font-size:0.8rem; border-color:#93c5fd;">
-                            <option value="10:00 - 15:00 (주말 1부)" ${b.time.includes('주말 1부') ? 'selected' : ''}>10:00 - 15:00 (주말 1부)</option>
-                            <option value="15:00 - 20:00 (주말 2부)" ${b.time.includes('주말 2부') ? 'selected' : ''}>15:00 - 20:00 (주말 2부)</option>
+                            <option value="10:00 - 15:00 (주말 1부)" ${(b.time && b.time.includes('주말 1부')) ? 'selected' : ''}>10:00 - 15:00 (주말 1부)</option>
+                            <option value="15:00 - 20:00 (주말 2부)" ${(b.time && b.time.includes('주말 2부')) ? 'selected' : ''}>15:00 - 20:00 (주말 2부)</option>
                         </select>`;
                 } else {
-                    timeSelectHTML = `<span style="font-size:0.85rem; font-weight:bold;">${b.time || '19:00 - 24:00 (평일 야간)'}</span>`;
+                    timeSelectHTML = `<span style="font-size:0.85rem; font-weight:bold;">19:00 - 24:00 (평일 야간)</span>`;
                 }
 
-                // 🛑 CREATOR 클래스는 좌석 지정이 필요 없음
                 let seatSelectHTML = '';
                 if (isCreator) {
                     seatSelectHTML = `<span style="font-weight:bold; color:#0d9488;">[CREATOR] 좌석 배정 불필요</span>`;
@@ -456,10 +461,13 @@
             });
         }
 
-        // 🛑 CREATOR 클래스 예약 승인 처리 함수 분기
+        // 🎯 [핵심 수정] 승인 처리 시 date 필드를 변경된 날짜(targetDate)로 갱신
         async function confirmSeatAndApprove(bookingId, targetDate, isCreator) {
             let selectedSeat = null;
-            let selectedTime = "19:00 - 24:00 (평일 야간)";
+            const targetDayOfWeek = new Date(targetDate).getDay();
+            const isWeekend = (targetDayOfWeek === 0 || targetDayOfWeek === 6);
+
+            let selectedTime = isWeekend ? "10:00 - 15:00 (주말 1부)" : "19:00 - 24:00 (평일 야간)";
 
             const timeSelect = document.getElementById(`time-select-${bookingId}`);
             if (timeSelect) selectedTime = timeSelect.value;
@@ -474,10 +482,11 @@
                 }
             }
 
+            // 🛑 date 필드를 갱신하여 승인 즉시 배치도 카드 및 달력에 정상 노출
             await db.collection('bookings').doc(bookingId).update({
                 date: targetDate,
                 time: selectedTime,
-                seat: selectedSeat, // CREATOR의 경우 null 유지
+                seat: selectedSeat,
                 approved: true,
                 status: 'APPROVED',
                 changeRequestedDate: null

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 내 정보 및 좌석 예약</title>
-    <link rel="stylesheet" href="style.css?v=5.3">
+    <link rel="stylesheet" href="style.css?v=5.4">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -302,7 +302,6 @@
                 const dayOfWeek = new Date(year, month, d).getDay();
                 const totalCap = ((dayOfWeek === 0 || dayOfWeek === 6) ? 2 : 1) * 4;
                 
-                // 🛑 CREATOR 클래스는 타 회원 예약 점유 수에서 제외
                 const dayBookings = monthBookingsCache.filter(b => b.date === dateStr && b.classType !== 'CREATOR');
                 const myBookings = monthBookingsCache.filter(b => b.date === dateStr && String(b.userId).trim() === myId);
 
@@ -348,7 +347,6 @@
             }
         }
 
-        // 🛑 CREATOR 클래스는 M01~M04 타 회원 조회 카드 영역에서 완전 제외
         function showDaySeatDetailsMyPage(dateStr, slots) {
             const title = document.getElementById('detail-title');
             const container = document.getElementById('detail-slots');
@@ -363,7 +361,6 @@
             const myId = String(session.id).trim();
 
             slots.forEach(slot => {
-                // 🛑 CREATOR 클래스는 M01~M04 좌석 카드에서 제외
                 const slotBookings = monthBookingsCache.filter(b => b.date === dateStr && b.time === slot && b.classType !== 'CREATOR');
                 const slotBox = document.createElement('div');
                 slotBox.style.marginBottom = '16px';
@@ -468,6 +465,7 @@
             }, 2000);
         }
 
+        // 🛑 예약일 변경 신청 시 status 및 changeRequestedDate 올바르게 설정
         async function requestBookingChange(docId, oldDate) {
             const newDate = prompt(`[예약일 변경 요청]\n기존 날짜: ${oldDate}\n\n변경을 원하시는 날짜를 입력해 주세요 (YYYY-MM-DD):`, oldDate);
             if (!newDate || newDate === oldDate) return;
@@ -490,7 +488,7 @@
         }
 
         document.getElementById('res-prev-btn').onclick = () => { month--; if(month < 0){ month = 11; year--; } renderResCal(); };
-        document.getElementById('res-next-btn').onclick = () => { month++; if(month > 11){ month = 0; year++; } renderResCal(); };
+        document.getElementById('res-next-btn').onclick = () => { month++; if(month > 11){ month = 0; year--; } renderResCal(); };
 
         async function deleteAccount() {
             if (!confirm('정말로 탈퇴하시겠습니까?')) return;
