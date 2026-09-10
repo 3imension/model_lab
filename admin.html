@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 관리자 페이지</title>
-    <link rel="stylesheet" href="style.css?v=5.1">
+    <link rel="stylesheet" href="style.css?v=5.2">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -119,7 +119,7 @@
                         <select id="all-booking-filter" onchange="renderAllBookingsList()" style="width: 150px; padding: 6px; font-size: 0.85rem;">
                             <option value="all">전체보기</option>
                             <option value="pending">승인대기중건</option>
-                            <option value="approved">승인 완료건</option>
+                            <option value="approved">예약중/승인완료건</option>
                         </select>
                     </div>
                 </div>
@@ -283,7 +283,7 @@
             });
         }
 
-        // 3. 관리자 달력 렌더링 (용어: 승인대기중 X건 변경, 오렌지색 배지 적용)
+        // 3. 관리자 달력 렌더링
         function renderAdminCalendar() {
             document.getElementById('admin-month-title').textContent = `${adminYear}년 ${adminMonth + 1}월`;
             const grid = document.getElementById('admin-calendar-grid');
@@ -315,15 +315,12 @@
 
                 let badgesHTML = '';
                 
-                // 🛑 1) 승인대기중 오렌지색 배지
                 if (pendingCount > 0) {
                     badgesHTML += `<span class="day-status-badge" style="background:#fff7ed; color:#ea580c; border:1px solid #ffedd5; font-weight:bold; margin-bottom:2px;">승인대기중 ${pendingCount}건</span>`;
                 }
-                // 2) 예약 완료 (미래/당일)
                 if (reservedCount > 0) {
-                    badgesHTML += `<span class="day-status-badge" style="background:#dbeafe; color:#1e40af; font-weight:bold; margin-bottom:2px;">예약 ${reservedCount}건</span>`;
+                    badgesHTML += `<span class="day-status-badge" style="background:#dbeafe; color:#1e40af; font-weight:bold; margin-bottom:2px;">예약중 ${reservedCount}건</span>`;
                 }
-                // 3) 사용 완료
                 if (completedCount > 0) {
                     badgesHTML += `<span class="day-status-badge" style="background:#cbd5e1; color:#475569; font-weight:bold;">완료 ${completedCount}건</span>`;
                 }
@@ -347,6 +344,7 @@
             showDaySeatDetailsAndTable(selectedAdminDate);
         }
 
+        // 🎯 3번 일자별 처리 테이블 (승인 완료건 중 사용전 상태를 "예약중" 파란색 버튼으로 표기)
         function showDaySeatDetailsAndTable(dateStr) {
             const title = document.getElementById('admin-detail-title');
             const slotsContainer = document.getElementById('admin-detail-slots');
@@ -425,7 +423,8 @@
                 if (isPast) {
                     btnHTML = `<button class="nav-btn" disabled style="padding:6px 14px; background:#94a3b8; color:#ffffff; cursor:default;">사용완료 (${b.seat || 'M01'})</button>`;
                 } else if (isApproved) {
-                    btnHTML = `<button class="nav-btn btn-primary" disabled style="padding:6px 14px; background:#2563eb; cursor:default; opacity:0.9;">승인완료 (${b.seat})</button>`;
+                    // 🛑 승인되었으나 오늘 포함 미래 사용전 상태 ➔ "예약중" 파란색 버튼
+                    btnHTML = `<button class="nav-btn btn-primary" disabled style="padding:6px 14px; background:#2563eb; color:#ffffff; cursor:default; opacity:0.95;">예약중 (${b.seat})</button>`;
                 } else {
                     btnHTML = `<button onclick="confirmSeatAndApprove('${b.id}', '${targetDate}')" class="nav-btn btn-success" style="padding:6px 14px;">좌석 배정 & 예약 승인</button>`;
                 }
@@ -472,7 +471,7 @@
             alert(`[예약 확정 완료]\n날짜: ${targetDate}\n시간: ${selectedTime}\n배정 좌석: ${selectedSeat}`);
         }
 
-        // 🛑 4번 회원별 예약 현황 (용어: 승인대기중, 오렌지색 배지)
+        // 🛑 4번 회원별 예약 현황 (승인 및 사용전 건은 "예약중" 파란색 배지 표기)
         function renderAllBookingsList() {
             const listElem = document.getElementById('admin-all-booking-list');
             if (!listElem) return;
@@ -500,7 +499,7 @@
                 if (isPast) {
                     statusText = `<span style="background:#cbd5e1; color:#475569; padding:3px 8px; border-radius:4px; font-weight:bold; font-size:0.8rem;">사용완료</span>`;
                 } else if (b.approved) {
-                    statusText = `<span style="background:#dcfce7; color:#15803d; padding:3px 8px; border-radius:4px; font-weight:bold; font-size:0.8rem;">승인완료</span>`;
+                    statusText = `<span style="background:#dbeafe; color:#1e40af; padding:3px 8px; border-radius:4px; font-weight:bold; font-size:0.8rem;">예약중</span>`;
                 } else {
                     statusText = `<span style="background:#fff7ed; color:#ea580c; border:1px solid #ffedd5; padding:3px 8px; border-radius:4px; font-weight:bold; font-size:0.8rem;">승인대기중</span>`;
                 }
