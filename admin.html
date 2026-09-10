@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 관리자 페이지</title>
-    <link rel="stylesheet" href="style.css?v=5.2">
+    <link rel="stylesheet" href="style.css?v=5.3">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -283,7 +283,6 @@
             });
         }
 
-        // 3. 관리자 달력 렌더링
         function renderAdminCalendar() {
             document.getElementById('admin-month-title').textContent = `${adminYear}년 ${adminMonth + 1}월`;
             const grid = document.getElementById('admin-calendar-grid');
@@ -304,8 +303,10 @@
                 const dayBookings = cachedBookings.filter(b => (b.date === dateStr || b.changeRequestedDate === dateStr));
 
                 const pendingCount = dayBookings.filter(b => !b.approved).length;
-                const completedCount = dayBookings.filter(b => b.approved && (dateStr < todayStr)).length;
-                const reservedCount = dayBookings.filter(b => b.approved && (dateStr >= todayStr)).length;
+                
+                // 🛑 CREATOR 클래스는 좌석 점유 카운트에서 제외 (M01~M04 실제 점유건만 카운트)
+                const completedCount = dayBookings.filter(b => b.approved && (dateStr < todayStr) && b.classType !== 'CREATOR').length;
+                const reservedCount = dayBookings.filter(b => b.approved && (dateStr >= todayStr) && b.classType !== 'CREATOR').length;
 
                 const cell = document.createElement('div');
                 cell.className = 'calendar-day-cell';
@@ -344,7 +345,7 @@
             showDaySeatDetailsAndTable(selectedAdminDate);
         }
 
-        // 🎯 3번 일자별 처리 테이블 (승인 완료건 중 사용전 상태를 "예약중" 파란색 버튼으로 표기)
+        // 🎯 3번 일자별 컨트롤 패널 (CREATOR 좌석 지정 무관화 처리)
         function showDaySeatDetailsAndTable(dateStr) {
             const title = document.getElementById('admin-detail-title');
             const slotsContainer = document.getElementById('admin-detail-slots');
@@ -356,7 +357,8 @@
             const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
             const slots = isWeekend ? ["10:00 - 15:00 (주말 1부)", "15:00 - 20:00 (주말 2부)"] : ["19:00 - 24:00 (평일 야간)"];
 
-            const dayApprovedBookings = cachedBookings.filter(b => (b.date === dateStr || b.changeRequestedDate === dateStr) && b.approved);
+            // 🛑 M01~M04 카드는 CREATOR가 아닌 배정된 좌석건만 표시
+            const dayApprovedBookings = cachedBookings.filter(b => (b.date === dateStr || b.changeRequestedDate === dateStr) && b.approved && b.classType !== 'CREATOR');
 
             let slotsCardsHTML = '';
             slots.forEach(slot => {
@@ -406,6 +408,7 @@
                 const targetDate = b.changeRequestedDate || b.date;
                 const isApproved = b.approved;
                 const isPast = targetDate < todayStr;
+                const isCreator = (b.classType === 'CREATOR'); // 🛑 CREATOR 여부 체크
                 const tr = document.createElement('tr');
 
                 let timeSelectHTML = '';
@@ -419,59 +422,70 @@
                     timeSelectHTML = `<span style="font-size:0.85rem; font-weight:bold;">${b.time || '19:00 - 24:00 (평일 야간)'}</span>`;
                 }
 
-                let btnHTML = '';
-                if (isPast) {
-                    btnHTML = `<button class="nav-btn" disabled style="padding:6px 14px; background:#94a3b8; color:#ffffff; cursor:default;">사용완료 (${b.seat || 'M01'})</button>`;
-                } else if (isApproved) {
-                    // 🛑 승인되었으나 오늘 포함 미래 사용전 상태 ➔ "예약중" 파란색 버튼
-                    btnHTML = `<button class="nav-btn btn-primary" disabled style="padding:6px 14px; background:#2563eb; color:#ffffff; cursor:default; opacity:0.95;">예약중 (${b.seat})</button>`;
+                // 🛑 CREATOR 클래스는 좌석 지정이 필요 없음
+                let seatSelectHTML = '';
+                if (isCreator) {
+                    seatSelectHTML = `<span style="font-weight:bold; color:#0d9488;">[CREATOR] 좌석 배정 불필요</span>`;
                 } else {
-                    btnHTML = `<button onclick="confirmSeatAndApprove('${b.id}', '${targetDate}')" class="nav-btn btn-success" style="padding:6px 14px;">좌석 배정 & 예약 승인</button>`;
-                }
-
-                tr.innerHTML = `
-                    <td><b>${b.userName || '-'}</b> (${b.userId})</td>
-                    <td><strong style="color:#2563eb;">${targetDate}</strong> ${b.status === 'CHANGE_REQUESTED' ? '<span style="color:#ef4444; font-size:0.75rem;">(변경요청)</span>' : ''}</td>
-                    <td>${timeSelectHTML}</td>
-                    <td>
+                    seatSelectHTML = `
                         <select id="seat-select-${b.id}" ${isApproved || isPast ? 'disabled' : ''} style="padding:6px; font-weight:bold; border-color:#93c5fd;">
                             <option value="M01" ${b.seat === 'M01' ? 'selected' : ''}>M01 좌석 지정</option>
                             <option value="M02" ${b.seat === 'M02' ? 'selected' : ''}>M02 좌석 지정</option>
                             <option value="M03" ${b.seat === 'M03' ? 'selected' : ''}>M03 좌석 지정</option>
                             <option value="M04" ${b.seat === 'M04' ? 'selected' : ''}>M04 좌석 지정</option>
-                        </select>
-                    </td>
+                        </select>`;
+                }
+
+                let btnHTML = '';
+                if (isPast) {
+                    btnHTML = `<button class="nav-btn" disabled style="padding:6px 14px; background:#94a3b8; color:#ffffff; cursor:default;">사용완료 ${b.seat ? `(${b.seat})` : ''}</button>`;
+                } else if (isApproved) {
+                    btnHTML = `<button class="nav-btn btn-primary" disabled style="padding:6px 14px; background:#2563eb; color:#ffffff; cursor:default; opacity:0.95;">예약중 ${b.seat ? `(${b.seat})` : ''}</button>`;
+                } else {
+                    btnHTML = `<button onclick="confirmSeatAndApprove('${b.id}', '${targetDate}', ${isCreator})" class="nav-btn btn-success" style="padding:6px 14px;">${isCreator ? '예약 승인' : '좌석 배정 & 예약 승인'}</button>`;
+                }
+
+                tr.innerHTML = `
+                    <td><b>${b.userName || '-'}</b> (${b.userId}) ${isCreator ? '<small style="color:#0d9488; font-weight:bold;">[CREATOR]</small>' : ''}</td>
+                    <td><strong style="color:#2563eb;">${targetDate}</strong> ${b.status === 'CHANGE_REQUESTED' ? '<span style="color:#ef4444; font-size:0.75rem;">(변경요청)</span>' : ''}</td>
+                    <td>${timeSelectHTML}</td>
+                    <td>${seatSelectHTML}</td>
                     <td>${btnHTML}</td>
                 `;
                 tableBody.appendChild(tr);
             });
         }
 
-        async function confirmSeatAndApprove(bookingId, targetDate) {
-            const seatSelect = document.getElementById(`seat-select-${bookingId}`);
-            const selectedSeat = seatSelect.value;
+        // 🛑 CREATOR 클래스 예약 승인 처리 함수 분기
+        async function confirmSeatAndApprove(bookingId, targetDate, isCreator) {
+            let selectedSeat = null;
+            let selectedTime = "19:00 - 24:00 (평일 야간)";
 
             const timeSelect = document.getElementById(`time-select-${bookingId}`);
-            const selectedTime = timeSelect ? timeSelect.value : "19:00 - 24:00 (평일 야간)";
+            if (timeSelect) selectedTime = timeSelect.value;
 
-            const dupCheck = cachedBookings.find(b => b.id !== bookingId && b.date === targetDate && b.time === selectedTime && b.seat === selectedSeat && b.approved);
-            if (dupCheck) {
-                return alert(`선택하신 [${selectedTime} / ${selectedSeat}] 좌석은 ${targetDate} 날짜에 이미 승인된 다른 예약이 있습니다.`);
+            if (!isCreator) {
+                const seatSelect = document.getElementById(`seat-select-${bookingId}`);
+                selectedSeat = seatSelect ? seatSelect.value : "M01";
+
+                const dupCheck = cachedBookings.find(b => b.id !== bookingId && b.date === targetDate && b.time === selectedTime && b.seat === selectedSeat && b.approved);
+                if (dupCheck) {
+                    return alert(`선택하신 [${selectedTime} / ${selectedSeat}] 좌석은 ${targetDate} 날짜에 이미 승인된 다른 예약이 있습니다.`);
+                }
             }
 
             await db.collection('bookings').doc(bookingId).update({
                 date: targetDate,
                 time: selectedTime,
-                seat: selectedSeat,
+                seat: selectedSeat, // CREATOR의 경우 null 유지
                 approved: true,
                 status: 'APPROVED',
                 changeRequestedDate: null
             });
 
-            alert(`[예약 확정 완료]\n날짜: ${targetDate}\n시간: ${selectedTime}\n배정 좌석: ${selectedSeat}`);
+            alert(`[예약 확정 완료]\n날짜: ${targetDate}\n시간: ${selectedTime}${selectedSeat ? `\n배정 좌석: ${selectedSeat}` : '\n좌석: CREATOR 공간'}`);
         }
 
-        // 🛑 4번 회원별 예약 현황 (승인 및 사용전 건은 "예약중" 파란색 배지 표기)
         function renderAllBookingsList() {
             const listElem = document.getElementById('admin-all-booking-list');
             if (!listElem) return;
@@ -510,7 +524,7 @@
                     </td>
                     <td>${b.date}</td>
                     <td>${b.time || '19:00 - 24:00 (평일 야간)'}</td>
-                    <td><strong style="color:#2563eb;">${b.seat || '미배정'}</strong></td>
+                    <td><strong style="color:#2563eb;">${b.seat || '미배정(CREATOR)'}</strong></td>
                     <td>${statusText}</td>
                 `;
                 listElem.appendChild(tr);

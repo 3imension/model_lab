@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOLAB - 내 정보 및 좌석 예약</title>
-    <link rel="stylesheet" href="style.css?v=5.1">
+    <link rel="stylesheet" href="style.css?v=5.3">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -93,7 +93,7 @@
                 </div>
             </div>
 
-            <!-- 💚 4. 내 좌석 예약 내역 목록 (용어: 승인대기중, 오렌지색 배지) -->
+            <!-- 💚 4. 내 좌석 예약 내역 목록 -->
             <div style="background: #ecfdf5; border: 2px solid #10b981; padding: 22px; border-radius: 12px; margin-bottom: 20px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; flex-wrap:wrap; gap:10px;">
                     <h2 style="font-size: 1.2rem; color: #047857; margin:0;">4. 내 좌석 예약 내역 목록</h2>
@@ -171,7 +171,6 @@
             return s.substring(0, 1) + '***';
         }
 
-        // 🛑 4번 내 좌석 예약 목록 (승인대기중 오렌지색 배지)
         function renderMyBookingsList() {
             const list = document.getElementById('my-booking-list');
             list.innerHTML = '';
@@ -203,10 +202,10 @@
                 if (isPast) {
                     statusBtnHTML = `<span style="background:#cbd5e1; color:#475569; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">사용완료</span>`;
                 } else if (b.status === 'CHANGE_REQUESTED') {
-                    statusBtnHTML = `<span style="background:#fff7ed; color:#ea580c; border:1px solid #ffedd5; padding:4px 8px; border-radius:4px; font-size:0.8rem; font-weight:bold;">변경 요청중</span>`;
+                    statusBtnHTML = `<span style="background:#fff7ed; color:#ea580c; border:1px solid #ffedd5; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">변경 요청중</span>`;
                 } else if (!b.approved) {
                     statusBtnHTML = `
-                        <span style="background:#fff7ed; color:#ea580c; border:1px solid #ffedd5; padding:4px 8px; border-radius:4px; font-size:0.8rem; font-weight:bold; margin-right:4px;">승인대기중</span>
+                        <span style="background:#fff7ed; color:#ea580c; border:1px solid #ffedd5; padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold; margin-right:4px;">승인대기중</span>
                         <button onclick="cancelBooking('${b.docId}')" class="nav-btn btn-danger" style="padding: 2px 6px; font-size: 0.75rem;">취소</button>
                     `;
                 } else if (canModify) {
@@ -218,7 +217,7 @@
                     statusBtnHTML = `<span style="background:#fef3c7; color:#b45309; padding:4px 8px; border-radius:4px; font-size:0.8rem; font-weight:bold;">변경/취소 불가</span>`;
                 }
 
-                const seatText = b.seat ? `<strong style="color:#2563eb;">${b.seat}</strong>` : `<span style="color:#94a3b8;">미배정</span>`;
+                const seatText = b.seat ? `<strong style="color:#2563eb;">${b.seat}</strong>` : (b.classType === 'CREATOR' ? `<span style="color:#0d9488; font-weight:bold;">[CREATOR]</span>` : `<span style="color:#94a3b8;">미배정</span>`);
 
                 tr.innerHTML = `
                     <td>${getClassTitle(b.classType)}</td>
@@ -272,7 +271,6 @@
             }
         }
 
-        // 🛑 회원 달력 상태 시각화 (승인대기중 오렌지색 배지)
         async function renderResCal() {
             document.getElementById('res-month-title').textContent = `${year}년 ${month + 1}월`;
             const cal = document.getElementById('res-calendar');
@@ -304,8 +302,9 @@
                 const dayOfWeek = new Date(year, month, d).getDay();
                 const totalCap = ((dayOfWeek === 0 || dayOfWeek === 6) ? 2 : 1) * 4;
                 
-                const dayBookings = monthBookingsCache.filter(b => b.date === dateStr);
-                const myBookings = dayBookings.filter(b => String(b.userId).trim() === myId);
+                // 🛑 CREATOR 클래스는 타 회원 예약 점유 수에서 제외
+                const dayBookings = monthBookingsCache.filter(b => b.date === dateStr && b.classType !== 'CREATOR');
+                const myBookings = monthBookingsCache.filter(b => b.date === dateStr && String(b.userId).trim() === myId);
 
                 const myPendingCount = myBookings.filter(b => !b.approved).length;
                 const myCompletedCount = myBookings.filter(b => b.approved && (dateStr < todayStr)).length;
@@ -317,16 +316,12 @@
                 if (dateStr === todayStr) cell.classList.add('is-today');
 
                 let badgesHTML = '';
-                
-                // 🛑 1) 승인대기중 오렌지 배지
                 if (myPendingCount > 0) {
                     badgesHTML += `<span class="day-status-badge" style="background:#fff7ed; color:#ea580c; border:1px solid #ffedd5; font-weight:bold; margin-bottom:2px;">승인대기중 ${myPendingCount}건</span>`;
                 }
-                // 2) 이용예정
                 if (myUpcomingCount > 0) {
                     badgesHTML += `<span class="day-status-badge" style="background:#dcfce7; color:#15803d; font-weight:bold; margin-bottom:2px;">이용예정 ${myUpcomingCount}건</span>`;
                 }
-                // 3) 완료
                 if (myCompletedCount > 0) {
                     badgesHTML += `<span class="day-status-badge" style="background:#cbd5e1; color:#475569; font-weight:bold;">완료 ${myCompletedCount}건</span>`;
                 }
@@ -353,6 +348,7 @@
             }
         }
 
+        // 🛑 CREATOR 클래스는 M01~M04 타 회원 조회 카드 영역에서 완전 제외
         function showDaySeatDetailsMyPage(dateStr, slots) {
             const title = document.getElementById('detail-title');
             const container = document.getElementById('detail-slots');
@@ -367,7 +363,8 @@
             const myId = String(session.id).trim();
 
             slots.forEach(slot => {
-                const slotBookings = monthBookingsCache.filter(b => b.date === dateStr && b.time === slot);
+                // 🛑 CREATOR 클래스는 M01~M04 좌석 카드에서 제외
+                const slotBookings = monthBookingsCache.filter(b => b.date === dateStr && b.time === slot && b.classType !== 'CREATOR');
                 const slotBox = document.createElement('div');
                 slotBox.style.marginBottom = '16px';
 
